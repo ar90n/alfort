@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "alfort"
+version = "0.1.0"
+description = ""
+authors = ["Masahiro Wada <argon.argon.argon@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.1"
+pytest-cov = "^3.0.0"
+pytest-xdist = "^2.5.0"
+pytest-black = "^0.3.12"
+pytest-mypy = "^0.9.1"
+pysen = "^0.10.1"
+pre-commit = "^2.18.1"
+conventional-commit = "^0.4.2"
+poethepoet = "^0.13.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pysen]
+version = "0.10.1"
+
+[tool.pysen.lint]
+enable_black = true
+enable_flake8 = false
+enable_isort = true
+enable_mypy = false
+
+[tool.poe.tasks]
+test = "pytest"
