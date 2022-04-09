@@ -34,3 +34,4 @@ enable_mypy = false
 
 [tool.poe.tasks]
 test = "pytest"
+install-pre-commit = "pre-commit install"
