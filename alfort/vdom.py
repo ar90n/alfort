@@ -1,25 +1,34 @@
+from __future__ import annotations
+
 from itertools import zip_longest
-from typing import Any, TypeAlias, Union, Iterable, Protocol
+from multiprocessing.sharedctypes import Value
+from typing import Any, TypeAlias, Protocol, Type
 from dataclasses import dataclass
 
-Props: TypeAlias = dict[str, Any]
-VNode: TypeAlias = Union["ElementVNode", "TextVNode"]
+from attr import field
 
 
 @dataclass(slots=True, frozen=True)
 class PatchReplace:
-    pass
-
-
-@dataclass(slots=True, frozen=True)
-class PatchReorder:
-    pass
+    tag: str
+    props: dict[str, Any]
+    children: list[Any]
 
 
 @dataclass(slots=True, frozen=True)
 class PatchProps:
-    new_props: Props
-    del_keys: Iterable[str]
+    add_props: dict[str, Any] = field(factory=dict)
+    del_keys: list[str] = field(factory=list)
+
+    @staticmethod
+    def of(
+        mirror_node_props: dict[str, Any], virtual_node_props: dict[str, Any]
+    ) -> PatchProps:
+        del_keys = list(set(mirror_node_props.keys()) - set(virtual_node_props.keys()))
+        new_props = dict(
+            set(virtual_node_props.items()) - set(mirror_node_props.items())
+        )
+        return PatchProps(add_props=new_props, del_keys=del_keys)
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,87 +36,152 @@ class PatchText:
     text: str
 
 
-Patch = PatchReplace | PatchReorder | PatchProps | PatchText
+@dataclass(slots=True, frozen=True)
+class PatchChildren:
+    children: list[Any]
+
+
+Patch = PatchReplace | PatchProps | PatchText | PatchChildren
 
 
 class Node(Protocol):
+    def unwrap(self) -> Any:
+        ...
+
     def apply(self, patch: Patch) -> None:
-        pass
+        ...
 
 
-@dataclass(slots=True)
-class ElementVNode:
+@dataclass(slots=True, frozen=True)
+class VirtualNodeElement:
     tag: str
-    props: Props
-    children: list[VNode]
-    key: int
+    props: dict[str, Any]
+    children: list[VirtualNode]
 
 
-@dataclass(slots=True)
-class TextVNode:
+@dataclass(slots=True, frozen=True)
+class VirtualNodeText:
     text: str
-    key: int
 
 
-@dataclass(slots=True)
-class ElementMNode(ElementVNode):
-    parent: "ElementMNode"
-    node: Any
+VirtualNode: TypeAlias = VirtualNodeElement | VirtualNodeText
 
 
-@dataclass(slots=True)
-class TextMNode(TextVNode):
-    parent: "ElementMNode"
-    node: Any
+@dataclass(slots=True, frozen=True)
+class MirrorNodeElement:
+    tag: str
+    props: dict[str, Any]
+    children: list[MirrorNode]
+    node: Node
+
+    def patch(
+        self,
+        tag: str | None = None,
+        props: dict[str, Any] | None = None,
+        children: list[MirrorNode] | None = None,
+        node: Node | None = None,
+    ) -> MirrorNodeElement:
+        tag = self.tag if tag is None else tag
+        props = self.props if props is None else props
+        children = self.children if children is None else children
+        node = self.node if node is None else node
+        return MirrorNodeElement(tag=tag, props=props, children=children, node=node)
+
+
+@dataclass(slots=True, frozen=True)
+class MirrorNodeText:
+    text: str
+    node: Node
+
+    def patch(
+        self, text: str | None = None, node: Node | None = None
+    ) -> MirrorNodeText:
+        text = self.text if text is None else text
+        node = self.node if node is None else node
+        return MirrorNodeText(text=text, node=node)
+
+
+MirrorNode: TypeAlias = MirrorNodeElement | MirrorNodeText
+
+
+def patch(
+    cls: Type[Node], mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
+) -> MirrorNode | None:
+    match (mirror_node, virtual_node):
+        case (_, None):
+            return None
+        case (
+            MirrorNodeText() as mirror_node,
+            VirtualNodeText() as virtual_node,
+        ):
+            if mirror_node.text != virtual_node.text:
+                mirror_node.node.apply(PatchText(virtual_node.text))
+                return mirror_node.patch(text=virtual_node.text)
+            else:
+                return mirror_node
+        case (
+            MirrorNodeElement() as mirror_node,
+            VirtualNodeElement() as virtual_node,
+        ) if mirror_node.tag == virtual_node.tag:
+            patches = []
+            if mirror_node.props != virtual_node.props:
+                patches.append(PatchProps.of(mirror_node.props, virtual_node.props))
+
+            new_children = mirror_node.children
+            if mirror_node.children != virtual_node.children:
+                child_pairs = zip_longest(mirror_node.children, virtual_node.children)
+                new_children = [patch(cls, m_c, v_c) for m_c, v_c in child_pairs]
+                patches.append(PatchChildren([c.node.unwrap() for c in new_children]))
+
+            if len(patches) == 0:
+                return mirror_node
+
+            for p in patches:
+                mirror_node.node.apply(p)
+            return mirror_node.patch(
+                props=virtual_node.props,
+                children=new_children,
+            )
+
+        case (_, VirtualNodeText() as virtual_node):
+            node = cls()
+            node.apply(PatchText(text=virtual_node.text))
+            return MirrorNodeText(
+                text=virtual_node.text,
+                node=node,
+            )
+
+        case (_, VirtualNodeElement() as virtual_node):
+            new_children = [patch(cls, None, v_c) for v_c in virtual_node.children]
+
+            node = cls()
+            node.apply(
+                PatchReplace(
+                    tag=virtual_node.tag,
+                    props=virtual_node.props,
+                    children=[c.node.unwrap() for c in new_children],
+                )
+            )
+            return MirrorNodeElement(
+                tag=virtual_node.tag,
+                props=virtual_node.props,
+                children=new_children,
+                node=node,
+            )
+    raise ValueError("e")
 
 
 def element(
-    tag: str, props: Props | None = None, children: list[VNode] | None = None
-) -> ElementVNode:
+    tag: str,
+    props: dict[str, Any] | None = None,
+    children: list[VirtualNode] | None = None,
+) -> VirtualNodeElement:
     if props is None:
         props = {}
     if children is None:
         children = []
-
-    return ElementVNode(tag, props=props, children=children, key=None)
-
-
-def text(text: str) -> TextVNode:
-    return TextVNode(text=text, key=None)
+    return VirtualNodeElement(tag=tag, props=props, children=children)
 
 
-def diff(old_vnode: VNode | None, new_vnode: VNode | None) -> list[Patch]:
-    patches = []
-    match (old_vnode, new_vnode):
-        case (_, None):
-            pass
-        case (TextVNode(text=old_text), TextVNode(text=new_text)):
-            if old_text != new_text:
-                patches.append(PatchText(new_text))
-        case (
-            ElementVNode(
-                tag=old_tag, key=old_key, props=old_props, children=old_children
-            ),
-            ElementVNode(
-                tag=new_tag, key=new_key, props=new_props, children=new_children
-            ),
-        ) if old_tag == new_tag and old_key == new_key:
-            ret = []
-            del_keys = set(old_props.keys()) - set(new_props.keys())
-            new_props2 = {
-                k: v
-                for k, v in new_props.items()
-                if k not in old_props or old_props[k] != v
-            }
-            if del_keys or new_props2:
-                patches.append(PatchProps(new_props=new_props2, del_keys=del_keys))
-
-            for old_child_vnode, new_child_vnode in zip_longest(
-                old_children, new_children
-            ):
-                patches.extend(diff(old_child_vnode, new_child_vnode))
-            return ret
-        case (_, _):
-            patches.append(PatchReplace(new_vnode))
-
-    return patches
+def text(text: str) -> VirtualNodeText:
+    return VirtualNodeText(text=text)
