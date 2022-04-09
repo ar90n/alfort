@@ -50,11 +50,8 @@ jobs:
         poetry install
 
     - name: Tests
-      env:
-        FLASH_TEST_TOPIC: ${{ join(matrix.topic,',') }}
-        FIFTYONE_DO_NOT_TRACK: true
       run: |
-        poetry run coverage run --source alfort -m pytest --reruns 3 --reruns-delay 2 -v --junitxml=junit/test-results-${{ runner.os }}-${{ matrix.python-version }}.xml
+        poetry run coverage run --source alfort -m pytest -v --junitxml=junit/test-results-${{ runner.os }}-${{ matrix.python-version }}.xml
 
     - name: Upload pytest test results
       uses: actions/upload-artifact@v2
