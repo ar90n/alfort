@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from itertools import zip_longest
-from multiprocessing.sharedctypes import Value
-from typing import Any, TypeAlias, Protocol, Type
 from dataclasses import dataclass
+from itertools import zip_longest
+from typing import Any, Protocol, TypeAlias
 
 from attr import field
 
@@ -49,6 +48,9 @@ class Node(Protocol):
         ...
 
     def apply(self, patch: Patch) -> None:
+        ...
+
+    def gogo(self) -> None:
         ...
 
 
@@ -105,7 +107,7 @@ MirrorNode: TypeAlias = MirrorNodeElement | MirrorNodeText
 
 
 def patch(
-    cls: Type[Node], mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
+    cls: type[Node], mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
 ) -> MirrorNode | None:
     match (mirror_node, virtual_node):
         case (_, None):
@@ -123,14 +125,18 @@ def patch(
             MirrorNodeElement() as mirror_node,
             VirtualNodeElement() as virtual_node,
         ) if mirror_node.tag == virtual_node.tag:
-            patches = []
+            patches: list[Patch] = []
             if mirror_node.props != virtual_node.props:
                 patches.append(PatchProps.of(mirror_node.props, virtual_node.props))
 
             new_children = mirror_node.children
             if mirror_node.children != virtual_node.children:
                 child_pairs = zip_longest(mirror_node.children, virtual_node.children)
-                new_children = [patch(cls, m_c, v_c) for m_c, v_c in child_pairs]
+                new_children = [
+                    v
+                    for v in [patch(cls, m_c, v_c) for m_c, v_c in child_pairs]
+                    if v is not None
+                ]
                 patches.append(PatchChildren([c.node.unwrap() for c in new_children]))
 
             if len(patches) == 0:
@@ -152,7 +158,11 @@ def patch(
             )
 
         case (_, VirtualNodeElement() as virtual_node):
-            new_children = [patch(cls, None, v_c) for v_c in virtual_node.children]
+            new_children = [
+                v
+                for v in [patch(cls, None, v_c) for v_c in virtual_node.children]
+                if v is not None
+            ]
 
             node = cls()
             node.apply(

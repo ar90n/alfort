@@ -37,15 +37,19 @@ enable_mypy = false
 [tool.isort]
 profile = "black"
 
-[tool.flake8]
-max-line-length = 120
-extend-ignore = "E203,W503"
-ignore = "W504"  # Line break occurred after a binary operator
-exclude = "*.egg,build,temp,.git"
-select = "E,W,F"
-doctests = True
-verbose = 2
-format = pylint
+[tool.mypy]
+python_version = "3.10"
+files = ["alfort", "tests"]
+pretty = true
+show_error_codes = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--strict --durations=0 --color=yes"
+testpaths = [
+    "tests"
+]
 
 [tool.poe.tasks]
 test = "pytest"
