@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from itertools import zip_longest
-from multiprocessing.sharedctypes import Value
-from typing import Any, TypeAlias, Protocol, Type
 from dataclasses import dataclass
+from itertools import zip_longest
+from typing import Any, Protocol, Type, TypeAlias
 
 from attr import field
 

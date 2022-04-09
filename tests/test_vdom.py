@@ -1,21 +1,20 @@
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 
 from alfort.vdom import (
     MirrorNodeElement,
     MirrorNodeText,
+    Node,
+    Patch,
     PatchChildren,
     PatchProps,
     PatchReplace,
     PatchText,
     VirtualNodeElement,
     VirtualNodeText,
-    patch,
-    Node,
-    Patch,
     element,
+    patch,
     text,
 )
 
