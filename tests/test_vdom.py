@@ -43,7 +43,9 @@ class VNodeNode(Node):
             case PatchReplace():
                 self._node = VirtualNodeElement(patch.tag, patch.props, patch.children)
             case PatchChildren():
-                self._node = VirtualNodeElement(self._node.tag, self._node.props, patch.children)
+                self._node = VirtualNodeElement(
+                    self._node.tag, self._node.props, patch.children
+                )
             case PatchProps():
                 for k in patch.del_keys:
                     self._node.props.pop(k)
@@ -140,10 +142,7 @@ def test_make_patch(mirror_node_root, virtual_node_root, expected_patches):
             element("br"),
             element("div", {"display": "flex"}, [element("br"), text("abc")]),
         ),
-        (
-            element("div", children=[text("abc")]),
-            text("abc")
-        ),
+        (element("div", children=[text("abc")]), text("abc")),
     ],
 )
 def test_patch_nodes(old_node_root, new_node_root):
