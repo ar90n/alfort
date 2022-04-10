@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import zip_longest
-from typing import Any, Protocol, Type, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 from attr import field
 
@@ -48,6 +48,9 @@ class Node(Protocol):
         ...
 
     def apply(self, patch: Patch) -> None:
+        ...
+
+    def gogo(self) -> None:
         ...
 
 
@@ -102,11 +105,9 @@ class MirrorNodeText:
 
 MirrorNode: TypeAlias = MirrorNodeElement | MirrorNodeText
 
-NodeType: TypeAlias = Type[Node]
-
 
 def patch(
-    cls: NodeType, mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
+    cls: type[Node], mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
 ) -> MirrorNode | None:
     match (mirror_node, virtual_node):
         case (_, None):
