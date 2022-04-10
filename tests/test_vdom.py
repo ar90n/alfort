@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 
 from alfort.vdom import (
+    MirrorNode,
     MirrorNodeElement,
     MirrorNodeText,
     Node,
@@ -11,6 +12,7 @@ from alfort.vdom import (
     PatchProps,
     PatchReplace,
     PatchText,
+    VirtualNode,
     VirtualNodeElement,
     VirtualNodeText,
     element,
@@ -20,6 +22,8 @@ from alfort.vdom import (
 
 
 class MockNode(Node):
+    _patches: list[Patch]
+
     def __init__(self) -> None:
         self._patches = []
 
@@ -31,6 +35,8 @@ class MockNode(Node):
 
 
 class VNodeNode(Node):
+    _node: VirtualNode | None
+
     def __init__(self) -> None:
         self._node = None
 
@@ -42,10 +48,16 @@ class VNodeNode(Node):
             case PatchReplace():
                 self._node = VirtualNodeElement(patch.tag, patch.props, patch.children)
             case PatchChildren():
+                if not isinstance(self._node, VirtualNodeElement):
+                    raise ValueError("Only to apply children to elements")
+
                 self._node = VirtualNodeElement(
                     self._node.tag, self._node.props, patch.children
                 )
             case PatchProps():
+                if not isinstance(self._node, VirtualNodeElement):
+                    raise ValueError("Only to apply props to an element node")
+
                 for k in patch.del_keys:
                     self._node.props.pop(k)
                 self._node.props.update(patch.add_props)
@@ -53,7 +65,7 @@ class VNodeNode(Node):
                 self._node = VirtualNodeText(patch.text)
 
 
-def test_construct_virtual_node():
+def test_construct_virtual_node() -> None:
     node = element("div", props={"display": "flex"}, children=[text("abc")])
 
     assert node.tag == "div"
@@ -122,10 +134,17 @@ def test_construct_virtual_node():
         ),
     ],
 )
-def test_make_patch(mirror_node_root, virtual_node_root, expected_patches):
+def test_make_patch(
+    mirror_node_root: MirrorNode | None,
+    virtual_node_root: VirtualNode | None,
+    expected_patches: list[Patch],
+) -> None:
     root = patch(MockNode, mirror_node_root, virtual_node_root)
 
-    assert root.node.unwrap() == expected_patches
+    if root is None:
+        assert virtual_node_root is None
+    else:
+        assert root.node.unwrap() == expected_patches
 
 
 @pytest.mark.parametrize(
@@ -144,9 +163,15 @@ def test_make_patch(mirror_node_root, virtual_node_root, expected_patches):
         (element("div", children=[text("abc")]), text("abc")),
     ],
 )
-def test_patch_nodes(old_node_root, new_node_root):
+def test_patch_nodes(
+    old_node_root: VirtualNode | None, new_node_root: VirtualNode | None
+) -> None:
     mirror_node_root = patch(VNodeNode, None, old_node_root)
     patched_node_root = patch(
         VNodeNode, mirror_node=mirror_node_root, virtual_node=new_node_root
     )
-    assert patched_node_root.node.unwrap() == new_node_root
+
+    if patched_node_root is None:
+        assert patched_node_root is new_node_root is None
+    else:
+        assert patched_node_root.node.unwrap() == new_node_root
