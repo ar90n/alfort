@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alfort"
-version = "0.1.0"
+version = "0.0.0-dev"
 description = ""
 authors = ["Masahiro Wada <argon.argon.argon@gmail.com>"]
 license = "MIT"
@@ -8,6 +8,9 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.10"
 conventional-commit = "^0.4.2"
+
+[tool.poetry.group.dev.dependencies]
+poethepoet = "^0.13.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.1"
@@ -18,7 +21,6 @@ pytest-mypy = "^0.9.1"
 pysen = "^0.10.1"
 pre-commit = "^2.18.1"
 conventional-commit = "^0.4.2"
-poethepoet = "^0.13.1"
 isort = "^5.10.1"
 flake8 = "^4.0.1"
 
@@ -52,6 +54,10 @@ testpaths = [
     "tests"
 ]
 
+[tool.poetry-version-plugin]
+source = "git-tag"
+
 [tool.poe.tasks]
 test = "pytest"
+install-plugins = "poetry plugin add poetry-version-plugin poethepoet[poetry_plugin]"
 install-pre-commit = "pre-commit install"
