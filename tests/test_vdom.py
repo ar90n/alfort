@@ -25,6 +25,7 @@ class MockNode(Node):
     _patches: list[Patch]
 
     def __init__(self) -> None:
+        super().__init__()
         self._patches = []
 
     def unwrap(self) -> Any:
@@ -38,6 +39,7 @@ class VNodeNode(Node):
     _node: VirtualNode | None
 
     def __init__(self) -> None:
+        super().__init__()
         self._node = None
 
     def unwrap(self) -> Any:
