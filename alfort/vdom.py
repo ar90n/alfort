@@ -102,9 +102,11 @@ class MirrorNodeText:
 
 MirrorNode: TypeAlias = MirrorNodeElement | MirrorNodeText
 
+NodeType: TypeAlias = Type[Node]
+
 
 def patch(
-    cls: Type[Node], mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
+    cls: NodeType, mirror_node: MirrorNode | None, virtual_node: VirtualNode | None
 ) -> MirrorNode | None:
     match (mirror_node, virtual_node):
         case (_, None):
