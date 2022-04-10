@@ -26,7 +26,7 @@
 [issues-url]: https://github.com/ar90n/alfort/issues
 [license-shield]: https://img.shields.io/github/license/ar90n/alfort.svg?style=flat
 [license-url]: https://github.com/ar90n/alfort/blob/master/LICENSE.txt
-[deepsource-shield]: https://deepsource.io/gh/ar90n/alfort/?ref=repository-badge
-[deepsource-url]: https://deepsource.io/gh/ar90n/alfort.svg/?label=active+issues&show_trend=true&token=HEDceZ0CpXMgd3em7_lCTtZl
-[codecov-shield]: https://codecov.io/gh/ar90n/alfort
-[codecov-url]: https://codecov.io/gh/ar90n/alfort/branch/main/graph/badge.svg?token=8GKU96ODLY
+[deepsource-shield]: https://deepsource.io/gh/ar90n/alfort.svg/?label=active+issues&show_trend=true&token=HEDceZ0CpXMgd3em7_lCTtZl
+[deepsource-url]: https://deepsource.io/gh/ar90n/alfort/?ref=repository-badge
+[codecov-shield]: https://codecov.io/gh/ar90n/alfort/branch/main/graph/badge.svg?token=8GKU96ODLY
+[codecov-url]: https://codecov.io/gh/ar90n/alfort
