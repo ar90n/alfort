@@ -119,8 +119,7 @@ def patch(
             if mirror_node.text != virtual_node.text:
                 mirror_node.node.apply(PatchText(virtual_node.text))
                 return mirror_node.patch(text=virtual_node.text)
-            else:
-                return mirror_node
+            return mirror_node
         case (
             MirrorNodeElement() as mirror_node,
             VirtualNodeElement() as virtual_node,
