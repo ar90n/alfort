@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import zip_longest
-from typing import Any, Protocol, TypeAlias
+from typing import Any, Generic, Protocol, TypeAlias, TypeVar
 
 from attr import field
 
@@ -50,32 +50,45 @@ class Node(Protocol):
     def apply(self, patch: Patch) -> None:
         ...
 
-    def gogo(self) -> None:
-        ...
+
+T = TypeVar("T")
 
 
 @dataclass(slots=True, frozen=True)
-class VirtualNodeElement:
+class Element(Generic[T]):
     tag: str
     props: dict[str, Any]
-    children: list[VirtualNode]
+    children: list[T]
 
 
 @dataclass(slots=True, frozen=True)
-class VirtualNodeText:
+class Text:
+    text: str
+
+
+@dataclass(slots=True, frozen=True)
+class VirtualNodeElement(Element["VirtualNodeElement"]):
+    pass
+
+
+@dataclass(slots=True, frozen=True)
+class VirtualNodeText(Text):
     text: str
 
 
 VirtualNode: TypeAlias = VirtualNodeElement | VirtualNodeText
 
 
-@dataclass(slots=True, frozen=True)
-class MirrorNodeElement:
-    tag: str
-    props: dict[str, Any]
-    children: list[MirrorNode]
-    node: Node
+def with_node(cls: Any):
+    class Wrap(cls):
+        node: Node
 
+    return Wrap
+
+
+@dataclass(slots=True, frozen=True)
+@with_node
+class MirrorNodeElement(Element["MirrorNodeElement"]):
     def patch(
         self,
         tag: str | None = None,
@@ -91,10 +104,8 @@ class MirrorNodeElement:
 
 
 @dataclass(slots=True, frozen=True)
-class MirrorNodeText:
-    text: str
-    node: Node
-
+@with_node
+class MirrorNodeText(Text):
     def patch(
         self, text: str | None = None, node: Node | None = None
     ) -> MirrorNodeText:
