@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from itertools import zip_longest
 from typing import Any, Generic, Protocol, TypeAlias, TypeVar
 
-from attr import field
-
 
 @dataclass(slots=True, frozen=True)
 class PatchReplace:
@@ -16,18 +14,7 @@ class PatchReplace:
 
 @dataclass(slots=True, frozen=True)
 class PatchProps:
-    add_props: dict[str, Any] = field(factory=dict)
-    del_keys: list[str] = field(factory=list)
-
-    @staticmethod
-    def of(
-        mirror_node_props: dict[str, Any], virtual_node_props: dict[str, Any]
-    ) -> PatchProps:
-        del_keys = list(set(mirror_node_props.keys()) - set(virtual_node_props.keys()))
-        new_props = dict(
-            set(virtual_node_props.items()) - set(mirror_node_props.items())
-        )
-        return PatchProps(add_props=new_props, del_keys=del_keys)
+    props: dict[str, Any]
 
 
 @dataclass(slots=True, frozen=True)
@@ -137,7 +124,7 @@ def patch(
         ) if mirror_node.tag == virtual_node.tag:
             patches: list[Patch] = []
             if mirror_node.props != virtual_node.props:
-                patches.append(PatchProps.of(mirror_node.props, virtual_node.props))
+                patches.append(PatchProps(virtual_node.props))
 
             new_children = mirror_node.children
             if mirror_node.children != virtual_node.children:

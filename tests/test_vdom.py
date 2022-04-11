@@ -60,9 +60,9 @@ class VNodeNode(Node):
                 if not isinstance(self._node, VirtualNodeElement):
                     raise ValueError("Only to apply props to an element node")
 
-                for k in patch.del_keys:
-                    self._node.props.pop(k)
-                self._node.props.update(patch.add_props)
+                self._node = VirtualNodeElement(
+                    self._node.tag, patch.props, self._node.children
+                )
             case PatchText():
                 self._node = VirtualNodeText(patch.text)
 
@@ -108,11 +108,7 @@ def test_construct_virtual_node() -> None:
                 node=MockNode(),
             ),
             element("div", {"display": "flex", "height": "100px"}),
-            [
-                PatchProps(
-                    add_props={"display": "flex", "height": "100px"}, del_keys=["width"]
-                )
-            ],
+            [PatchProps(props={"display": "flex", "height": "100px"})],
         ),
         (
             MirrorNodeElement("div", {"display": "flex"}, children=[], node=MockNode()),
