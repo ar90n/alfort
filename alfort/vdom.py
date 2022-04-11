@@ -51,6 +51,13 @@ class Node(Protocol):
         ...
 
 
+def with_node(cls: Any):
+    class WithNode(cls):
+        node: Node
+
+    return WithNode
+
+
 T = TypeVar("T")
 
 
@@ -73,17 +80,10 @@ class VirtualNodeElement(Element["VirtualNodeElement"]):
 
 @dataclass(slots=True, frozen=True)
 class VirtualNodeText(Text):
-    text: str
+    pass
 
 
 VirtualNode: TypeAlias = VirtualNodeElement | VirtualNodeText
-
-
-def with_node(cls: Any):
-    class Wrap(cls):
-        node: Node
-
-    return Wrap
 
 
 @dataclass(slots=True, frozen=True)
