@@ -76,29 +76,74 @@ VirtualNode: TypeAlias = VirtualNodeElement | VirtualNodeText
 @dataclass(slots=True, frozen=True)
 @with_node
 class MirrorNodeElement(Element["MirrorNodeElement"]):
-    def patch(
-        self,
-        tag: str | None = None,
-        props: dict[str, Any] | None = None,
-        children: list[MirrorNode] | None = None,
-        node: Node | None = None,
+    def update(
+        self, props: dict[str, Any] | None = None, children: list[Any] | None = None
     ) -> MirrorNodeElement:
-        tag = self.tag if tag is None else tag
-        props = self.props if props is None else props
-        children = self.children if children is None else children
-        node = self.node if node is None else node
-        return MirrorNodeElement(tag=tag, props=props, children=children, node=node)
+        patches = []
+        if props is None:
+            props = {}
+        if children is None:
+            children = []
+
+        if props != self.props:
+            patches.append(PatchProps(props))
+        if children != self.children:
+            patches.append(PatchChildren(children=[c.node.unwrap() for c in children]))
+
+        if len(patches) == 0:
+            return self
+
+        for p in patches:
+            self.node.apply(p)
+        return MirrorNodeElement(
+            tag=self.tag,
+            props=props,
+            children=children,
+            node=self.node,
+        )
+
+    @staticmethod
+    def of(virtual_node: VirtualNodeElement, cls: type[Node]) -> MirrorNodeElement:
+        def _dispatch(virtual_node: VirtualNode, cls: type[Node]) -> MirrorNode:
+            match virtual_node:
+                case VirtualNodeElement():
+                    return MirrorNodeElement.of(virtual_node, cls)
+                case VirtualNodeText():
+                    return MirrorNodeText.of(virtual_node, cls)
+
+        new_children = [_dispatch(v_c, cls) for v_c in virtual_node.children]
+
+        node = cls()
+        node.apply(
+            PatchReplace(
+                tag=virtual_node.tag,
+                props=virtual_node.props,
+                children=[c.node.unwrap() for c in new_children],
+            )
+        )
+        return MirrorNodeElement(
+            tag=virtual_node.tag,
+            props=virtual_node.props,
+            children=new_children,
+            node=node,
+        )
 
 
 @dataclass(slots=True, frozen=True)
 @with_node
 class MirrorNodeText(Text):
-    def patch(
-        self, text: str | None = None, node: Node | None = None
-    ) -> MirrorNodeText:
-        text = self.text if text is None else text
-        node = self.node if node is None else node
-        return MirrorNodeText(text=text, node=node)
+    def update(self, text: str) -> MirrorNodeText:
+        if self.text == text:
+            return self
+
+        self.node.apply(PatchText(text=text))
+        return MirrorNodeText(text=text, node=self.node)
+
+    @staticmethod
+    def of(virtual_node: VirtualNodeText, cls: type[Node]) -> MirrorNodeText:
+        node = cls()
+        node.apply(PatchText(text=virtual_node.text))
+        return MirrorNodeText(text=virtual_node.text, node=node)
 
 
 MirrorNode: TypeAlias = MirrorNodeElement | MirrorNodeText
@@ -114,67 +159,22 @@ def patch(
             MirrorNodeText() as mirror_node,
             VirtualNodeText() as virtual_node,
         ):
-            if mirror_node.text != virtual_node.text:
-                mirror_node.node.apply(PatchText(virtual_node.text))
-                return mirror_node.patch(text=virtual_node.text)
-            return mirror_node
+            return mirror_node.update(virtual_node.text)
+        case (_, VirtualNodeText() as virtual_node):
+            return MirrorNodeText.of(virtual_node, cls)
         case (
             MirrorNodeElement() as mirror_node,
             VirtualNodeElement() as virtual_node,
         ) if mirror_node.tag == virtual_node.tag:
-            patches: list[Patch] = []
-            if mirror_node.props != virtual_node.props:
-                patches.append(PatchProps(virtual_node.props))
-
-            new_children = mirror_node.children
-            if mirror_node.children != virtual_node.children:
-                child_pairs = zip_longest(mirror_node.children, virtual_node.children)
-                new_children = [
-                    v
-                    for v in [patch(cls, m_c, v_c) for m_c, v_c in child_pairs]
-                    if v is not None
-                ]
-                patches.append(PatchChildren([c.node.unwrap() for c in new_children]))
-
-            if len(patches) == 0:
-                return mirror_node
-
-            for p in patches:
-                mirror_node.node.apply(p)
-            return mirror_node.patch(
-                props=virtual_node.props,
-                children=new_children,
-            )
-
-        case (_, VirtualNodeText() as virtual_node):
-            node = cls()
-            node.apply(PatchText(text=virtual_node.text))
-            return MirrorNodeText(
-                text=virtual_node.text,
-                node=node,
-            )
-
+            new_children = []
+            for m_c, v_c in zip_longest(mirror_node.children, virtual_node.children):
+                if n := patch(cls, m_c, v_c):
+                    new_children.append(n)
+            return mirror_node.update(virtual_node.props, new_children)
         case (_, VirtualNodeElement() as virtual_node):
-            new_children = [
-                v
-                for v in [patch(cls, None, v_c) for v_c in virtual_node.children]
-                if v is not None
-            ]
-
-            node = cls()
-            node.apply(
-                PatchReplace(
-                    tag=virtual_node.tag,
-                    props=virtual_node.props,
-                    children=[c.node.unwrap() for c in new_children],
-                )
-            )
-            return MirrorNodeElement(
-                tag=virtual_node.tag,
-                props=virtual_node.props,
-                children=new_children,
-                node=node,
-            )
+            return MirrorNodeElement.of(virtual_node, cls)
+        case (_, _):
+            raise ValueError("Invalid patch")
     raise ValueError("e")
 
 
