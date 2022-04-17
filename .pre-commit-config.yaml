@@ -77,3 +77,14 @@ repos:
     hooks:
       - id: flake8
         name: PEP8
+
+  - repo: local
+    hooks:
+    - id: pyright
+      args: [ --warnings ]
+      name: pyright
+      entry: pyright
+      language: node
+      pass_filenames: false
+      types: [python]
+      additional_dependencies: ['pyright@1.1.238']

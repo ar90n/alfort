@@ -11,14 +11,13 @@ conventional-commit = "^0.4.2"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.13.1"
+pyright = "^1.1.238"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.1"
 pytest-cov = "^3.0.0"
 pytest-xdist = "^2.5.0"
 pytest-black = "^0.3.12"
-pytest-mypy = "^0.9.1"
-pysen = "^0.10.1"
 pre-commit = "^2.18.1"
 conventional-commit = "^0.4.2"
 isort = "^5.10.1"
@@ -28,25 +27,16 @@ flake8 = "^4.0.1"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.pysen]
-version = "0.10.1"
-
-[tool.pysen.lint]
-enable_black = true
-enable_flake8 = false
-enable_isort = true
-enable_mypy = false
-
 [tool.isort]
 profile = "black"
 
-[tool.mypy]
-python_version = "3.10"
-files = ["alfort", "tests"]
-pretty = true
-show_error_codes = true
-disallow_untyped_defs = true
-ignore_missing_imports = true
+[tool.pyright]
+include = ["alfort"]
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.10"
+pythonPlatform = "Linux"
 
 [tool.pytest.ini_options]
 addopts = "--strict --durations=0 --color=yes"
