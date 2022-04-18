@@ -1,5 +1,5 @@
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Generic, Mapping, Optional, Tuple, TypeVar, Union
+from typing import Any, Optional, Tuple, TypeAlias, Union
 
 import pytest
 
@@ -23,9 +23,6 @@ from alfort.vdom import (
     text,
 )
 
-S = TypeVar("S", bound=Mapping[str, Any])
-M = TypeVar("M")
-
 
 def remove_node(vdom: VDom) -> VDom:
     kwargs: dict[str, Any] = {
@@ -36,39 +33,71 @@ def remove_node(vdom: VDom) -> VDom:
     return replace(vdom, **kwargs)
 
 
+State: TypeAlias = dict[str, Any]
+
+
 class MockNode(Node):
-    _patches: list[Patch]
+    patches: list[Patch]
 
     def __init__(self) -> None:
-        self._patches = []
-
-    def unwrap(self) -> Any:
-        return self._patches
+        self.patches = []
 
     def apply(self, patch: Patch) -> None:
-        self._patches.append(patch)
+        self.patches.append(patch)
+
+
+class MockApp(App[State, Any, MockNode]):
+
+    mock_target: MockNode = MockNode()
+
+    def __init__(self, view: View[State], update: Update[State, Any]) -> None:
+        super().__init__(view, update)
+
+    @classmethod
+    def create_element(
+        cls,
+        tag: str,
+        props: Props,
+        children: list[MockNode],
+        dispatch: Dispatch[Any],
+    ) -> MockNode:
+        return cls.mock_target
+
+    @classmethod
+    def create_text(cls, text: str) -> MockNode:
+        return cls.mock_target
+
+
+@dataclass(frozen=True)
+class CountUp:
+    value: int = 1
+
+
+@dataclass(frozen=True)
+class CountDown:
+    value: int = 1
+
+
+Msg = Union[CountUp, CountDown]
 
 
 class VDomNode(Node):
-    _vdom: VDom
-    _dispatch: Optional[Callable[[Any], None]]
+    vdom: VDom
+    dispatch: Dispatch[Msg]
 
-    def __init__(self, vdom: VDom, dispatch: Callable[[Any], None]) -> None:
-        self._vdom = vdom
-        self._dispatch = dispatch
-
-    def unwrap(self) -> Any:
-        return self._vdom
+    def __init__(self, vdom: VDom, dispatch: Dispatch[Msg]) -> None:
+        self.vdom = vdom
+        self.dispatch = dispatch
 
     def apply(self, patch: Patch) -> None:
-        match (self._vdom, patch):
+        match (self.vdom, patch):
             case (VDomElement() as vdom_element, PatchInsertChild(child, reference)):
                 ind = len(vdom_element.children)
                 if reference is not None:
-                    ind = vdom_element.children.index(reference.unwrap())
-                vdom_element.children.insert(ind, child.unwrap())
+                    ind = vdom_element.children.index(reference.vdom)
+                vdom_element.children.insert(ind, child.vdom)
             case (VDomElement() as vdom_element, PatchRemoveChild(child)):
-                vdom_element.children.remove(child.unwrap())
+                vdom_element.children.remove(child.vdom)
             case (VDomElement() as vdom_element, PatchProps(remove_keys, add_props)):
                 for k in remove_keys:
                     del vdom_element.props[k]
@@ -79,33 +108,49 @@ class VDomNode(Node):
             case (_, _):
                 raise ValueError(f"Invalid patch: {patch}")
 
-    @staticmethod
+    @classmethod
+    def text(
+        cls,
+        text: str,
+        dispatch: Dispatch[Msg] = lambda _: None,
+    ) -> "VDomNode":
+        return cls(vdom=VDomText(text=text), dispatch=dispatch)
+
+    @classmethod
     def el(
+        cls,
         tag: str,
         props: Props,
         children: list["VDomNode"],
-        dispatch: Optional[Callable[[Any], None]] = None,
+        dispatch: Dispatch[Msg] = lambda _: None,
     ) -> "VDomNode":
-        def _dispatch(_: Any) -> None:
-            pass
-
-        if dispatch is None:
-            dispatch = _dispatch
-        return VDomNode(
+        return cls(
             vdom=VDomElement(
-                tag=tag, props=props, children=[c._vdom for c in children]
+                tag=tag,
+                props=props,
+                children=[c.vdom for c in children],
             ),
             dispatch=dispatch,
         )
 
-    @staticmethod
-    def text(text: str, dispatch: Optional[Callable[[Any], None]] = None) -> "VDomNode":
-        def _dispatch(_: Any) -> None:
-            pass
 
-        if dispatch is None:
-            dispatch = _dispatch
-        return VDomNode(vdom=VDomText(text=text), dispatch=dispatch)
+class VDomApp(App[dict[str, Any], Msg, VDomNode]):
+    @classmethod
+    def create_text(
+        cls,
+        text: str,
+    ) -> VDomNode:
+        return VDomNode.text(text)
+
+    @classmethod
+    def create_element(
+        cls,
+        tag: str,
+        props: Props,
+        children: list[VDomNode],
+        dispatch: Dispatch[Msg],
+    ) -> VDomNode:
+        return VDomNode.el(tag, props, children, dispatch)
 
 
 def test_construct_vdom() -> None:
@@ -122,45 +167,6 @@ def test_construct_vdom() -> None:
     assert vdom.children[1].tag == "span"
     assert vdom.children[1].props == {}
     assert len(vdom.children[1].children) == 1
-
-
-class MockApp(App[dict[str, Any], Any, Any]):
-    mock_target: MockNode = MockNode()
-
-    def __init__(
-        self, view: View[dict[str, Any]], update: Update[dict[str, Any], Any]
-    ) -> None:
-        super().__init__(view, update)
-
-    @classmethod
-    def create_element(
-        cls,
-        tag: str,
-        props: Props,
-        children: list[Any],
-        dispatch: Dispatch[Any],
-    ) -> Node:
-        return cls.mock_target
-
-    @classmethod
-    def create_text(cls, text: str) -> Node:
-        return cls.mock_target
-
-
-class VDomApp(Generic[S, M], App[S, M, VDomNode]):
-    @classmethod
-    def create_element(
-        cls,
-        tag: str,
-        props: Props,
-        children: list[VDomNode],
-        dispatch: Dispatch[M],
-    ) -> VDomNode:
-        return VDomNode.el(tag, props, children, dispatch)
-
-    @classmethod
-    def create_text(cls, text: str) -> VDomNode:
-        return VDomNode.text(text)
 
 
 @pytest.mark.parametrize(
@@ -206,7 +212,7 @@ class VDomApp(Generic[S, M], App[S, M, VDomNode]):
         ),
     ],
 )
-def test_make_patch(
+def test_apply_patch(
     old_vdom: VDom | None,
     new_vdom: VDom,
     expected_patches: list[type[Patch]],
@@ -216,11 +222,11 @@ def test_make_patch(
         pass
 
     (node, _) = MockApp.patch(dispatch, None, old_vdom)
-    MockApp.mock_target.unwrap().clear()
+    MockApp.mock_target.patches.clear()
 
     (node, patches_to_parent) = MockApp.patch(dispatch, node, new_vdom)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
-    assert [type(p) for p in MockApp.mock_target.unwrap()] == expected_patches
+    assert [type(p) for p in MockApp.mock_target.patches] == expected_patches
 
     assert node is not None
     assert remove_node(node) == new_vdom
@@ -241,7 +247,7 @@ def test_make_patch(
         (None, [], []),
     ],
 )
-def test_null_vdom(
+def test_apply_remove_child_patch(
     old_vdom: VDom | None,
     expected_patches: list[type[Patch]],
     expected_root_patches: list[type[Patch]],
@@ -250,63 +256,16 @@ def test_null_vdom(
         pass
 
     (node, _) = MockApp.patch(dispatch, None, old_vdom)
-    MockApp.mock_target.unwrap().clear()
+    MockApp.mock_target.patches.clear()
 
     (node, patches_to_parent) = MockApp.patch(dispatch, node, None)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
-    assert [type(p) for p in MockApp.mock_target.unwrap()] == expected_patches
+    assert [type(p) for p in MockApp.mock_target.patches] == expected_patches
 
     assert node is None
 
 
-def test_app() -> None:
-    root = None
-
-    def view(state: dict[str, int]) -> VDom:
-        return el(
-            "div",
-            {},
-            [
-                el("span", {}, [text("count: ")]),
-                el("span", {}, [text(str(state["count"]))]),
-            ],
-        )
-
-    def init() -> Tuple[dict[str, int], list[Effect[Any]]]:
-        return ({"count": 0}, [])
-
-    def update(
-        msg: Any, state: dict[str, int]
-    ) -> Tuple[dict[str, int], list[Effect[Any]]]:
-        return (state, [])
-
-    def mount(target: VDomNode) -> None:
-        nonlocal root
-        root = target.unwrap()
-
-    app = VDomApp[dict[str, int], int](
-        update=update,
-        view=view,
-    )
-    app(
-        mount=mount,
-        init=init,
-    )
-
-    assert root == view(init()[0])
-
-
-def test_event() -> None:
-    @dataclass(frozen=True)
-    class CountUp:
-        pass
-
-    @dataclass(frozen=True)
-    class CountDown:
-        pass
-
-    Msg = Union[CountUp, CountDown]
-
+def test_update_state() -> None:
     def view(state: dict[str, int]) -> VDom:
         return el(
             "div",
@@ -317,16 +276,16 @@ def test_event() -> None:
         )
 
     def init() -> Tuple[dict[str, int], list[Effect[Msg]]]:
-        return ({"count": 0}, [])
+        return ({"count": 0}, [lambda dispatch: dispatch(CountUp(3))])
 
     def update(
         msg: Msg, state: dict[str, int]
     ) -> Tuple[dict[str, int], list[Effect[Msg]]]:
         match msg:
-            case CountUp():
-                return ({"count": state["count"] + 1}, [])
-            case CountDown():
-                return ({"count": state["count"] - 1}, [])
+            case CountUp(value):
+                return ({"count": state["count"] + value}, [])
+            case CountDown(value):
+                return ({"count": state["count"] - value}, [])
 
     dispatch: Dispatch[Msg] = lambda _: None
     root: Optional[Any] = None
@@ -334,14 +293,14 @@ def test_event() -> None:
     def mount(target: VDomNode) -> None:  # type: ignore
         nonlocal root
         nonlocal dispatch
-        root = target.unwrap()
-        dispatch = target._dispatch  # type: ignore
+        root = target.vdom
+        dispatch = target.dispatch
 
     app = VDomApp(view=view, update=update)
     app(mount=mount, init=init)
 
-    assert root == view({"count": 0})
+    assert root == view({"count": 3})
     dispatch(CountUp())
-    assert root == view({"count": 1})
+    assert root == view({"count": 4})
     dispatch(CountDown())
-    assert root == view({"count": 0})
+    assert root == view({"count": 3})

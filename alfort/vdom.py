@@ -120,7 +120,7 @@ class App(Generic[S, M, N]):
 
     @classmethod
     @abstractmethod
-    def create_text(cls, text: str) -> Node:
+    def create_text(cls, text: str) -> N:
         raise NotImplementedError("create_text")
 
     @classmethod
