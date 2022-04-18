@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Generic, Optional, Tuple, TypeVar, Union
+from dataclasses import dataclass, replace
+from typing import Any, Callable, Generic, Mapping, Optional, Tuple, TypeVar, Union
 
 import pytest
 
@@ -7,12 +7,13 @@ from alfort.vdom import (
     App,
     Dispatch,
     Effect,
+    Node,
     Patch,
     PatchInsertChild,
     PatchProps,
     PatchRemoveChild,
     PatchText,
-    Target,
+    Props,
     Update,
     VDom,
     VDomElement,
@@ -20,14 +21,22 @@ from alfort.vdom import (
     View,
     el,
     text,
-    to_vdom,
 )
 
-S = TypeVar("S")
+S = TypeVar("S", bound=Mapping[str, Any])
 M = TypeVar("M")
 
 
-class MockTarget(Target):
+def remove_node(vdom: VDom) -> VDom:
+    kwargs: dict[str, Any] = {
+        "node": None,
+    }
+    if isinstance(vdom, VDomElement):
+        kwargs["children"] = [remove_node(child) for child in vdom.children]
+    return replace(vdom, **kwargs)
+
+
+class MockNode(Node):
     _patches: list[Patch]
 
     def __init__(self) -> None:
@@ -40,7 +49,7 @@ class MockTarget(Target):
         self._patches.append(patch)
 
 
-class VDomTarget(Target):
+class VDomNode(Node):
     _vdom: VDom
     _dispatch: Optional[Callable[[Any], None]]
 
@@ -56,10 +65,10 @@ class VDomTarget(Target):
             case (VDomElement() as vdom_element, PatchInsertChild(child, reference)):
                 ind = len(vdom_element.children)
                 if reference is not None:
-                    ind = vdom_element.children.index(reference)
-                vdom_element.children.insert(ind, child)
+                    ind = vdom_element.children.index(reference.unwrap())
+                vdom_element.children.insert(ind, child.unwrap())
             case (VDomElement() as vdom_element, PatchRemoveChild(child)):
-                vdom_element.children.remove(child)
+                vdom_element.children.remove(child.unwrap())
             case (VDomElement() as vdom_element, PatchProps(remove_keys, add_props)):
                 for k in remove_keys:
                     del vdom_element.props[k]
@@ -73,29 +82,30 @@ class VDomTarget(Target):
     @staticmethod
     def el(
         tag: str,
-        props: dict[str, Any],
-        children: list[VDom],
+        props: Props,
+        children: list["VDomNode"],
         dispatch: Optional[Callable[[Any], None]] = None,
-    ) -> "VDomTarget":
+    ) -> "VDomNode":
         def _dispatch(_: Any) -> None:
             pass
 
         if dispatch is None:
             dispatch = _dispatch
-        return VDomTarget(
-            vdom=VDomElement(tag=tag, props=props, children=children), dispatch=dispatch
+        return VDomNode(
+            vdom=VDomElement(
+                tag=tag, props=props, children=[c._vdom for c in children]
+            ),
+            dispatch=dispatch,
         )
 
     @staticmethod
-    def text(
-        text: str, dispatch: Optional[Callable[[Any], None]] = None
-    ) -> "VDomTarget":
+    def text(text: str, dispatch: Optional[Callable[[Any], None]] = None) -> "VDomNode":
         def _dispatch(_: Any) -> None:
             pass
 
         if dispatch is None:
             dispatch = _dispatch
-        return VDomTarget(vdom=VDomText(text=text), dispatch=dispatch)
+        return VDomNode(vdom=VDomText(text=text), dispatch=dispatch)
 
 
 def test_construct_vdom() -> None:
@@ -115,7 +125,7 @@ def test_construct_vdom() -> None:
 
 
 class MockApp(App[dict[str, Any], Any, Any]):
-    mock_target: Target = MockTarget()
+    mock_target: MockNode = MockNode()
 
     def __init__(
         self, view: View[dict[str, Any]], update: Update[dict[str, Any], Any]
@@ -126,31 +136,31 @@ class MockApp(App[dict[str, Any], Any, Any]):
     def create_element(
         cls,
         tag: str,
-        props: dict[str, Any],
+        props: Props,
         children: list[Any],
         dispatch: Dispatch[Any],
-    ) -> Target:
+    ) -> Node:
         return cls.mock_target
 
     @classmethod
-    def create_text(cls, text: str) -> Target:
+    def create_text(cls, text: str) -> Node:
         return cls.mock_target
 
 
-class VDomApp(Generic[S, M], App[S, M, Any]):
+class VDomApp(Generic[S, M], App[S, M, VDomNode]):
     @classmethod
     def create_element(
         cls,
         tag: str,
-        props: dict[str, Any],
-        children: list[Any],
+        props: Props,
+        children: list[VDomNode],
         dispatch: Dispatch[M],
-    ) -> VDomTarget:
-        return VDomTarget.el(tag, props, children, dispatch)
+    ) -> VDomNode:
+        return VDomNode.el(tag, props, children, dispatch)
 
     @classmethod
-    def create_text(cls, text: str) -> VDomTarget:
-        return VDomTarget.text(text)
+    def create_text(cls, text: str) -> VDomNode:
+        return VDomNode.text(text)
 
 
 @pytest.mark.parametrize(
@@ -189,27 +199,16 @@ class VDomApp(Generic[S, M], App[S, M, Any]):
             [],
         ),
         (
-            el(
-                "div",
-                {},
-                children=[],
-            ),
-            None,
-            [],
-            [PatchRemoveChild],
-        ),
-        (
             None,
             text("abc"),
             [],
             [PatchInsertChild],
         ),
-        (None, None, [], []),
     ],
 )
 def test_make_patch(
     old_vdom: VDom | None,
-    new_vdom: VDom | None,
+    new_vdom: VDom,
     expected_patches: list[type[Patch]],
     expected_root_patches: list[type[Patch]],
 ) -> None:
@@ -223,8 +222,41 @@ def test_make_patch(
     assert [type(p) for p in patches_to_parent] == expected_root_patches
     assert [type(p) for p in MockApp.mock_target.unwrap()] == expected_patches
 
-    patched_vdom = to_vdom(node) if node is not None else None
-    assert patched_vdom == new_vdom
+    assert node is not None
+    assert remove_node(node) == new_vdom
+
+
+@pytest.mark.parametrize(
+    "old_vdom, expected_patches, expected_root_patches",
+    [
+        (
+            el(
+                "div",
+                {},
+                children=[],
+            ),
+            [],
+            [PatchRemoveChild],
+        ),
+        (None, [], []),
+    ],
+)
+def test_null_vdom(
+    old_vdom: VDom | None,
+    expected_patches: list[type[Patch]],
+    expected_root_patches: list[type[Patch]],
+) -> None:
+    def dispatch(_: Any) -> None:
+        pass
+
+    (node, _) = MockApp.patch(dispatch, None, old_vdom)
+    MockApp.mock_target.unwrap().clear()
+
+    (node, patches_to_parent) = MockApp.patch(dispatch, node, None)
+    assert [type(p) for p in patches_to_parent] == expected_root_patches
+    assert [type(p) for p in MockApp.mock_target.unwrap()] == expected_patches
+
+    assert node is None
 
 
 def test_app() -> None:
@@ -248,7 +280,7 @@ def test_app() -> None:
     ) -> Tuple[dict[str, int], list[Effect[Any]]]:
         return (state, [])
 
-    def mount(target: Target) -> None:
+    def mount(target: VDomNode) -> None:
         nonlocal root
         root = target.unwrap()
 
@@ -299,7 +331,7 @@ def test_event() -> None:
     dispatch: Dispatch[Msg] = lambda _: None
     root: Optional[Any] = None
 
-    def mount(target: Target) -> None:  # type: ignore
+    def mount(target: VDomNode) -> None:  # type: ignore
         nonlocal root
         nonlocal dispatch
         root = target.unwrap()
