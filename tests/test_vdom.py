@@ -5,15 +5,19 @@ import pytest
 
 from alfort.vdom import (
     App,
+    Dispatch,
+    Effect,
     Patch,
     PatchInsertChild,
     PatchProps,
     PatchRemoveChild,
     PatchText,
     Target,
+    Update,
     VDom,
     VDomElement,
     VDomText,
+    View,
     el,
     text,
     to_vdom,
@@ -69,8 +73,8 @@ class VDomTarget(Target):
     @staticmethod
     def el(
         tag: str,
-        props: dict,
-        children: list,
+        props: dict[str, Any],
+        children: list[VDom],
         dispatch: Optional[Callable[[Any], None]] = None,
     ) -> "VDomTarget":
         def _dispatch(_: Any) -> None:
@@ -110,22 +114,43 @@ def test_construct_vdom() -> None:
     assert len(vdom.children[1].children) == 1
 
 
-class MockApp(App):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self._mock_target = MockTarget()
+class MockApp(App[dict[str, Any], Any, Any]):
+    mock_target: Target = MockTarget()
 
+    def __init__(
+        self, view: View[dict[str, Any]], update: Update[dict[str, Any], Any]
+    ) -> None:
+        super().__init__(view, update)
+
+    @classmethod
     def create_element(
-        self,
+        cls,
         tag: str,
-        props: dict,
+        props: dict[str, Any],
         children: list[Any],
-        dispatch: Callable[[Any], None],
-    ) -> MockTarget:
-        return self._mock_target
+        dispatch: Dispatch[Any],
+    ) -> Target:
+        return cls.mock_target
 
-    def create_text(self, text: str) -> MockTarget:
-        return self._mock_target
+    @classmethod
+    def create_text(cls, text: str) -> Target:
+        return cls.mock_target
+
+
+class VDomApp(Generic[S, M], App[S, M, Any]):
+    @classmethod
+    def create_element(
+        cls,
+        tag: str,
+        props: dict[str, Any],
+        children: list[Any],
+        dispatch: Dispatch[M],
+    ) -> VDomTarget:
+        return VDomTarget.el(tag, props, children, dispatch)
+
+    @classmethod
+    def create_text(cls, text: str) -> VDomTarget:
+        return VDomTarget.text(text)
 
 
 @pytest.mark.parametrize(
@@ -188,36 +213,23 @@ def test_make_patch(
     expected_patches: list[type[Patch]],
     expected_root_patches: list[type[Patch]],
 ) -> None:
-    app = MockApp(view=lambda _: new_vdom, update=lambda _, state: (state, []))
+    def dispatch(_: Any) -> None:
+        pass
 
-    patch = app.make_patch()
+    (node, _) = MockApp.patch(dispatch, None, old_vdom)
+    MockApp.mock_target.unwrap().clear()
 
-    (node, _) = patch(None, old_vdom)
-    app._mock_target.unwrap().clear()
-
-    (node, patches_to_parent) = patch(node, new_vdom)
+    (node, patches_to_parent) = MockApp.patch(dispatch, node, new_vdom)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
-    assert [type(p) for p in app._mock_target.unwrap()] == expected_patches
+    assert [type(p) for p in MockApp.mock_target.unwrap()] == expected_patches
 
     patched_vdom = to_vdom(node) if node is not None else None
     assert patched_vdom == new_vdom
 
 
-class VDomApp(Generic[S, M], App[S, M, Any]):
-    def create_element(
-        self,
-        tag: str,
-        props: dict,
-        children: list[Any],
-        dispatch: Callable[[Any], None],
-    ) -> VDomTarget:
-        return VDomTarget.el(tag, props, children, dispatch)
-
-    def create_text(self, text: str) -> VDomTarget:
-        return VDomTarget.text(text)
-
-
 def test_app() -> None:
+    root = None
+
     def view(state: dict[str, int]) -> VDom:
         return el(
             "div",
@@ -228,17 +240,20 @@ def test_app() -> None:
             ],
         )
 
-    def init() -> Tuple[dict[str, int], list[Callable]]:
+    def init() -> Tuple[dict[str, int], list[Effect[Any]]]:
         return ({"count": 0}, [])
 
-    root = None
+    def update(
+        msg: Any, state: dict[str, int]
+    ) -> Tuple[dict[str, int], list[Effect[Any]]]:
+        return (state, [])
 
     def mount(target: Target) -> None:
         nonlocal root
         root = target.unwrap()
 
     app = VDomApp[dict[str, int], int](
-        update=lambda _, state: (state, []),
+        update=update,
         view=view,
     )
     app(
@@ -250,18 +265,6 @@ def test_app() -> None:
 
 
 def test_event() -> None:
-    def view(state: dict[str, int]) -> VDom:
-        return el(
-            "div",
-            {},
-            [
-                text(str(state["count"])),
-            ],
-        )
-
-    def init() -> Tuple[dict[str, int], list[Callable]]:
-        return ({"count": 0}, [])
-
     @dataclass(frozen=True)
     class CountUp:
         pass
@@ -272,16 +275,28 @@ def test_event() -> None:
 
     Msg = Union[CountUp, CountDown]
 
+    def view(state: dict[str, int]) -> VDom:
+        return el(
+            "div",
+            {},
+            [
+                text(str(state["count"])),
+            ],
+        )
+
+    def init() -> Tuple[dict[str, int], list[Effect[Msg]]]:
+        return ({"count": 0}, [])
+
     def update(
         msg: Msg, state: dict[str, int]
-    ) -> Tuple[dict[str, int], list[Callable]]:
+    ) -> Tuple[dict[str, int], list[Effect[Msg]]]:
         match msg:
             case CountUp():
                 return ({"count": state["count"] + 1}, [])
             case CountDown():
                 return ({"count": state["count"] - 1}, [])
 
-    dispatch: Callable = lambda x: x
+    dispatch: Dispatch[Msg] = lambda _: None
     root: Optional[Any] = None
 
     def mount(target: Target) -> None:  # type: ignore
