@@ -22,10 +22,16 @@ class PatchProps:
     add_props: "Props"
 
 
+T = TypeVar("T")
+N = TypeVar("N", bound="Node")
+S = TypeVar("S", bound=Mapping[str, Any])
+M = TypeVar("M")
+
+
 @dataclass(slots=True, frozen=True)
 class PatchInsertChild:
     child: Any
-    reference: Any
+    reference: Optional[Any]
 
 
 @dataclass(slots=True, frozen=True)
@@ -47,24 +53,41 @@ class Node(Protocol):
 
 
 @dataclass(slots=True, frozen=True)
-class VDomElement:
+class Element(Generic[T]):
     tag: str
     props: "Props"
-    children: list["VDom"]
-    node: Node | None = None
+    children: list[T]
 
 
 @dataclass(slots=True, frozen=True)
-class VDomText:
+class Text:
     text: str
-    node: Node | None = None
 
 
-VDom: TypeAlias = Union[VDomElement, VDomText]
+@dataclass(slots=True, frozen=True)
+class VDomElement(Element["VDom"]):
+    pass
 
-N = TypeVar("N", bound=Node)
-S = TypeVar("S", bound=Mapping[str, Any])
-M = TypeVar("M")
+
+@dataclass(slots=True, frozen=True)
+class VDomText(Text):
+    pass
+
+
+VDom = Union[VDomElement, VDomText]
+
+
+@dataclass(slots=True, frozen=True)
+class NodeDomElement(Element["NodeDom"]):
+    node: Node
+
+
+@dataclass(slots=True, frozen=True)
+class NodeDomText(Text):
+    node: Node
+
+
+NodeDom = Union[NodeDomElement, NodeDomText]
 
 
 UpdateResult: TypeAlias = Tuple[S, list[Callable[[], None]]]
@@ -136,25 +159,31 @@ class App(Generic[S, M, N]):
     @classmethod
     def diff_node(
         cls,
-        node: Node,
-        vdom: VDom | None,
+        cur_node: Node | None,
+        new_node: Node | None,
     ) -> list[Patch]:
-        reference = None
         patches_to_parent: list[Patch] = []
-        if isinstance(vdom, VDom) and vdom.node is not None:
-            reference = vdom.node
+
+        reference = None
+        if cur_node is not None:
+            reference = cur_node
             patches_to_parent.append(PatchRemoveChild(child=reference))
-        patches_to_parent.insert(0, PatchInsertChild(child=node, reference=reference))
+
+        if new_node is not None:
+            patches_to_parent.insert(
+                0, PatchInsertChild(child=new_node, reference=reference)
+            )
+
         return patches_to_parent
 
     @classmethod
     def patch_children(
         cls,
         dispatch: Dispatch[M],
-        node_children: list[VDom],
+        node_children: list[NodeDom],
         vdom_children: list[VDom],
-    ) -> Tuple[list[VDom], list[Patch]]:
-        new_children: list[VDom] = []
+    ) -> Tuple[list[NodeDom], list[Patch]]:
+        new_children: list[NodeDom] = []
         patches_to_parent: list[Patch] = []
         for n, vd in zip_longest(node_children, vdom_children):
             (new_child, patches_to_self) = cls.patch(dispatch, n, vd)
@@ -167,51 +196,53 @@ class App(Generic[S, M, N]):
     def patch(
         cls,
         dispatch: Dispatch[M],
-        cur_vdom: VDom | None,
+        node_dom: NodeDom | None,
         new_vdom: VDom | None,
-    ) -> tuple[VDom | None, list[Patch]]:
-        match (cur_vdom, new_vdom):
+    ) -> tuple[NodeDom | None, list[Patch]]:
+        match (node_dom, new_vdom):
             case (_, None):
-                patches_to_self: list[Patch] = []
-                if isinstance(cur_vdom, VDom) and cur_vdom.node is not None:
-                    patches_to_self.append(PatchRemoveChild(child=cur_vdom.node))
+                if node_dom is None or node_dom.node is None:
+                    return (None, [])
+                patches_to_self: list[Patch] = [PatchRemoveChild(child=node_dom.node)]
                 return (None, patches_to_self)
             case (
-                VDomText(cur_text, cur_node),
+                NodeDomText(cur_text, cur_node),
                 VDomText(new_text),
             ):
                 if cur_node is None:
                     raise ValueError("cur_node is None")
                 if cur_text == new_text:
-                    return (cur_vdom, [])
+                    return (node_dom, [])
                 cur_node.apply(PatchText(text=new_text))
-                return (replace(new_vdom, node=cur_node), [])
+                return (replace(node_dom, text=new_text), [])
             case (
-                VDomElement() as cur_vdom,
+                NodeDomElement() as node_dom,
                 VDomElement() as new_vdom,
-            ) if cur_vdom.tag == new_vdom.tag:
-                if cur_vdom.props != new_vdom.props and cur_vdom.node is not None:
-                    cur_vdom.node.apply(cls.diff_props(cur_vdom.props, new_vdom.props))
+            ) if node_dom.tag == new_vdom.tag:
+                if node_dom.props != new_vdom.props and node_dom.node is not None:
+                    node_dom.node.apply(cls.diff_props(node_dom.props, new_vdom.props))
 
                 (new_children, patches_to_self) = cls.patch_children(
-                    dispatch, cur_vdom.children, new_vdom.children
+                    dispatch, node_dom.children, new_vdom.children
                 )
-                if cur_vdom.node is not None:
+                if node_dom.node is not None:
                     for p in patches_to_self:
-                        cur_vdom.node.apply(p)
+                        node_dom.node.apply(p)
                 return (
-                    replace(new_vdom, children=new_children, node=cur_vdom.node),
+                    replace(node_dom, props=new_vdom.props, children=new_children),
                     [],
                 )
             case (_, VDomText(new_text)):
+                cur_node = node_dom.node if node_dom is not None else None
                 new_node = cls.create_text(new_text)
-                patches_to_parent = cls.diff_node(new_node, cur_vdom)
-                return (replace(new_vdom, node=new_node), patches_to_parent)
+                patches_to_parent = cls.diff_node(cur_node, new_node)
+                return (NodeDomText(text=new_text, node=new_node), patches_to_parent)
             case (_, VDomElement() as new_vdom):
+                cur_node = node_dom.node if node_dom is not None else None
                 new_node = cls.create_element(
                     new_vdom.tag, new_vdom.props, [], dispatch
                 )
-                patches_to_parent = cls.diff_node(new_node, cur_vdom)
+                patches_to_parent = cls.diff_node(cur_node, new_node)
 
                 (new_children, patches_to_self) = cls.patch_children(
                     dispatch, [], new_vdom.children
@@ -220,25 +251,29 @@ class App(Generic[S, M, N]):
                     new_node.apply(p)
 
                 return (
-                    replace(new_vdom, children=new_children, node=new_node),
+                    NodeDomElement(
+                        tag=new_vdom.tag,
+                        props=new_vdom.props,
+                        children=new_children,
+                        node=new_node,
+                    ),
                     patches_to_parent,
                 )
             case (_, _):
-                raise AssertionError(f"unexpected: {cur_vdom} {new_vdom}")
+                raise AssertionError(f"unexpected: {node_dom} {new_vdom}")
 
 
 def el(
     tag: str,
-    props: dict[str, Any] | None = None,
+    props: Props | None = None,
     children: list[VDom] | None = None,
-    node: Node | None = None,
 ) -> VDomElement:
     if props is None:
         props = {}
     if children is None:
         children = []
-    return VDomElement(tag=tag, props=props, children=children, node=node)
+    return VDomElement(tag=tag, props=props, children=children)
 
 
-def text(text: str, node: Node | None = None) -> VDomText:
-    return VDomText(text=text, node=node)
+def text(text: str) -> VDomText:
+    return VDomText(text=text)

@@ -1,5 +1,5 @@
-from dataclasses import dataclass, replace
-from typing import Any, Optional, Tuple, TypeAlias, Union
+from dataclasses import dataclass
+from typing import Any, TypeAlias, Union
 
 import pytest
 
@@ -8,6 +8,9 @@ from alfort.vdom import (
     Dispatch,
     Effect,
     Node,
+    NodeDom,
+    NodeDomElement,
+    NodeDomText,
     Patch,
     PatchInsertChild,
     PatchProps,
@@ -24,13 +27,12 @@ from alfort.vdom import (
 )
 
 
-def remove_node(vdom: VDom) -> VDom:
-    kwargs: dict[str, Any] = {
-        "node": None,
-    }
-    if isinstance(vdom, VDomElement):
-        kwargs["children"] = [remove_node(child) for child in vdom.children]
-    return replace(vdom, **kwargs)
+def to_vnode(node_dom: NodeDom) -> VDom:
+    match node_dom:
+        case NodeDomText():
+            return text(node_dom.text)
+        case NodeDomElement(tag, props, children):
+            return el(tag, props, [to_vnode(child) for child in children])
 
 
 State: TypeAlias = dict[str, Any]
@@ -91,12 +93,17 @@ class VDomNode(Node):
 
     def apply(self, patch: Patch) -> None:
         match (self.vdom, patch):
-            case (VDomElement() as vdom_element, PatchInsertChild(child, reference)):
+            case (
+                VDomElement() as vdom_element,
+                PatchInsertChild(child, reference),
+            ) if isinstance(child, VDomNode):
                 ind = len(vdom_element.children)
                 if reference is not None:
                     ind = vdom_element.children.index(reference.vdom)
                 vdom_element.children.insert(ind, child.vdom)
-            case (VDomElement() as vdom_element, PatchRemoveChild(child)):
+            case (VDomElement() as vdom_element, PatchRemoveChild(child)) if isinstance(
+                child, VDomNode
+            ):
                 vdom_element.children.remove(child.vdom)
             case (VDomElement() as vdom_element, PatchProps(remove_keys, add_props)):
                 for k in remove_keys:
@@ -221,15 +228,15 @@ def test_apply_patch(
     def dispatch(_: Any) -> None:
         pass
 
-    (node, _) = MockApp.patch(dispatch, None, old_vdom)
+    (node_dom, _) = MockApp.patch(dispatch, None, old_vdom)
     MockApp.mock_target.patches.clear()
 
-    (node, patches_to_parent) = MockApp.patch(dispatch, node, new_vdom)
+    (node, patches_to_parent) = MockApp.patch(dispatch, node_dom, new_vdom)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
     assert [type(p) for p in MockApp.mock_target.patches] == expected_patches
 
     assert node is not None
-    assert remove_node(node) == new_vdom
+    assert to_vnode(node) == new_vdom
 
 
 @pytest.mark.parametrize(
@@ -275,12 +282,12 @@ def test_update_state() -> None:
             ],
         )
 
-    def init() -> Tuple[dict[str, int], list[Effect[Msg]]]:
+    def init() -> tuple[dict[str, int], list[Effect[Msg]]]:
         return ({"count": 0}, [lambda dispatch: dispatch(CountUp(3))])
 
     def update(
         msg: Msg, state: dict[str, int]
-    ) -> Tuple[dict[str, int], list[Effect[Msg]]]:
+    ) -> tuple[dict[str, int], list[Effect[Msg]]]:
         match msg:
             case CountUp(value):
                 return ({"count": state["count"] + value}, [])
@@ -288,9 +295,9 @@ def test_update_state() -> None:
                 return ({"count": state["count"] - value}, [])
 
     dispatch: Dispatch[Msg] = lambda _: None
-    root: Optional[Any] = None
+    root: VDom | None = None
 
-    def mount(target: VDomNode) -> None:  # type: ignore
+    def mount(target: VDomNode) -> None:
         nonlocal root
         nonlocal dispatch
         root = target.vdom
