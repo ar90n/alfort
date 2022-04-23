@@ -18,9 +18,9 @@ M = TypeVar("M")
 
 
 class DomNode(Node):
-    dom: DOMNode
+    dom: "DOMNode"
 
-    def __init__(self, dom: DOMNode) -> None:
+    def __init__(self, dom: "DOMNode") -> None:
         self.dom = dom
 
     def apply(self, patch: Patch) -> None:
