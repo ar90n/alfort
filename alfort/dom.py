@@ -1,6 +1,7 @@
 from typing import Any, Mapping, TypeVar
 
-from browser import DOMNode, document  # type: ignore
+from browser import DOMNode as BrowserDomNode  # type: ignore
+from browser import document  # type: ignore
 
 from alfort import Alfort, Dispatch, Init, Update, View
 from alfort.vdom import (
@@ -18,9 +19,9 @@ M = TypeVar("M")
 
 
 class DomNode(Node):
-    dom: "DOMNode"
+    dom: BrowserDomNode
 
-    def __init__(self, dom: "DOMNode") -> None:
+    def __init__(self, dom: BrowserDomNode) -> None:
         self.dom = dom
 
     def apply(self, patch: Patch) -> None:
