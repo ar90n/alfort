@@ -32,7 +32,7 @@ build-backend = "poetry.core.masonry.api"
 profile = "black"
 
 [tool.pyright]
-include = ["alfort", "tests"]
+include = ["alfort"]
 stubPath ="stubs"
 typeCheckingMode = "strict"
 reportMissingImports = true
