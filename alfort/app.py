@@ -1,18 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass, replace
 from itertools import zip_longest
-from typing import (
-    Any,
-    Callable,
-    Generic,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    TypeAlias,
-    TypeVar,
-    Union,
-)
+from typing import Callable, Generic, List, Optional, Tuple, TypeAlias, TypeVar, Union
 
 from alfort.vdom import (
     Element,
@@ -29,7 +18,7 @@ from alfort.vdom import (
 
 T = TypeVar("T")
 N = TypeVar("N", bound=Node)
-S = TypeVar("S", bound=Mapping[str, Any])
+S = TypeVar("S")
 M = TypeVar("M")
 
 Dispatch: TypeAlias = Callable[[M], None]
