@@ -9,6 +9,11 @@
 [![Codecov][codecov-shield]][codecov-url]
 [![Apache License 2.0 License][license-shield]][license-url]
 
+## Install Poery plugins
+```bash
+$ poetry plugin add poethepoet[poetry_plugin]
+```
+
 [download-shield]: https://img.shields.io/pypi/dm/alfort?style=flat
 [download-url]: https://pypi.org/project/alfort/
 [version-shield]: https://img.shields.io/pypi/v/alfort?style=flat
