@@ -1,21 +1,12 @@
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Generic,
-    List,
-    MutableMapping,
-    Protocol,
-    TypeAlias,
-    TypeVar,
-    Union,
-)
+from typing import Any, Generic, MutableMapping, Protocol, TypeAlias, TypeVar
 
 T = TypeVar("T")
 
 
 @dataclass(slots=True, frozen=True)
 class PatchProps:
-    remove_keys: List[str]
+    remove_keys: list[str]
     add_props: "Props"
 
 
@@ -35,7 +26,7 @@ class PatchText:
     value: str
 
 
-Patch = Union[PatchProps, PatchInsertChild, PatchRemoveChild, PatchText]
+Patch = PatchProps | PatchInsertChild | PatchRemoveChild | PatchText
 
 
 class Node(Protocol):
@@ -47,7 +38,7 @@ class Node(Protocol):
 class Element(Generic[T]):
     tag: str
     props: "Props"
-    children: List[T]
+    children: list[T]
 
 
 @dataclass(slots=True, frozen=True)
@@ -55,7 +46,7 @@ class VDomElement(Element["VDom"]):
     ...
 
 
-VDom = Union[VDomElement, str]
+VDom = VDomElement | str
 
 
 Props: TypeAlias = MutableMapping[str, Any]

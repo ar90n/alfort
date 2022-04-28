@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any
 
 import pytest
 
@@ -175,7 +175,7 @@ class CountDown:
     value: int = 1
 
 
-Msg = Union[CountUp, CountDown]
+Msg = CountUp | CountDown
 
 
 class TextNode(Node):

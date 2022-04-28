@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass, replace
 from itertools import zip_longest
-from typing import Callable, Generic, List, Optional, Tuple, TypeAlias, TypeVar, Union
+from typing import Callable, Generic, TypeAlias, TypeVar
 
 from alfort.vdom import (
     Element,
@@ -23,9 +23,9 @@ M = TypeVar("M")
 
 Dispatch: TypeAlias = Callable[[M], None]
 Effect: TypeAlias = Callable[[Dispatch[M]], None]
-View: TypeAlias = Callable[[S], Optional[VDom]]
-Update: TypeAlias = Callable[[M, S], Tuple[S, List[Effect[M]]]]
-Init: TypeAlias = Callable[[], Tuple[S, List[Effect[M]]]]
+View: TypeAlias = Callable[[S], VDom | None]
+Update: TypeAlias = Callable[[M, S], tuple[S, list[Effect[M]]]]
+Init: TypeAlias = Callable[[], tuple[S, list[Effect[M]]]]
 Mount: TypeAlias = Callable[[N], None]
 
 
@@ -40,7 +40,7 @@ class NodeDomText:
     node: Node
 
 
-NodeDom = Union[NodeDomElement, NodeDomText]
+NodeDom = NodeDomElement | NodeDomText
 
 
 class Alfort(Generic[S, M, N]):
