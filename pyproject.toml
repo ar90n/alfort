@@ -3,7 +3,7 @@ name = "alfort"
 version = "0.0.0-dev"
 description = ""
 authors = ["Masahiro Wada <argon.argon.argon@gmail.com>"]
-license = "MIT"
+license = "Apache-2.0"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -47,4 +47,5 @@ source = "git-tag"
 
 [tool.poe.tasks]
 test = "pytest"
+install-plugins = "poetry plugin add poethepoet[poetry_plugin]"
 install-pre-commit = "pre-commit install"
