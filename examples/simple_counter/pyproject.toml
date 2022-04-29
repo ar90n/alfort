@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "simple-counter"
+version = "0.1.0"
+description = ""
+authors = ["Masahiro Wada <argon.argon.argon@gmail.com>"]
+readme = "README.md"
+packages = [{include = "simple_counter"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+alfort = {path = "../.."}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -28,7 +28,7 @@ build-backend = "poetry.core.masonry.api"
 profile = "black"
 
 [tool.pyright]
-include = ["alfort"]
+include = ["alfort", "examples"]
 stubPath ="stubs"
 typeCheckingMode = "strict"
 reportMissingImports = true

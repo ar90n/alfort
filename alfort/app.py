@@ -43,18 +43,19 @@ class NodeDomText:
 NodeDom = NodeDomElement | NodeDomText
 
 
-class Alfort(Generic[S, M, N]):
-    @classmethod
-    @abstractmethod
-    def create_element(
-        cls, tag: str, props: Props, children: list[N], dispatch: Dispatch[M]
-    ) -> N:
-        ...
+class _FakeRootNode(Node):
+    def __init__(self) -> None:
+        pass
 
-    @classmethod
-    @abstractmethod
-    def create_text(cls, text: str, dispatch: Dispatch[M]) -> N:
-        ...
+    def apply(self, patch: Patch) -> None:
+        pass
+
+
+class Alfort(Generic[S, M, N]):
+    _init: Init[S, M]
+    _view: View[S]
+    _update: Update[M, S]
+    _enqueue: Enqueue
 
     @classmethod
     def _run_effects(cls, dispatch: Dispatch[M], effects: list[Effect[M]]) -> None:
@@ -91,9 +92,30 @@ class Alfort(Generic[S, M, N]):
 
         return patches_to_parent
 
-    @classmethod
+    def __init__(
+        self,
+        init: Init[S, M],
+        view: View[S],
+        update: Update[M, S],
+        enqueue: Enqueue = lambda render: render(),
+    ) -> None:
+        self._init = init
+        self._view = view
+        self._update = update
+        self._enqueue = enqueue
+
+    @abstractmethod
+    def create_element(
+        self, tag: str, props: Props, children: list[N], dispatch: Dispatch[M]
+    ) -> N:
+        ...
+
+    @abstractmethod
+    def create_text(self, text: str, dispatch: Dispatch[M]) -> N:
+        ...
+
     def _patch_children(
-        cls,
+        self,
         dispatch: Dispatch[M],
         node_children: list[NodeDom],
         vdom_children: list[VDom],
@@ -101,15 +123,14 @@ class Alfort(Generic[S, M, N]):
         new_children: list[NodeDom] = []
         patches_to_parent: list[Patch] = []
         for n, vd in zip_longest(node_children, vdom_children):
-            (new_child, patches_to_self) = cls.patch(dispatch, n, vd)
+            (new_child, patches_to_self) = self.patch(dispatch, n, vd)
             if new_child is not None:
                 new_children.append(new_child)
             patches_to_parent.extend(patches_to_self)
         return (new_children, patches_to_parent)
 
-    @classmethod
     def patch(
-        cls,
+        self,
         dispatch: Dispatch[M],
         node_dom: NodeDom | None,
         new_vdom: VDom | None,
@@ -135,9 +156,11 @@ class Alfort(Generic[S, M, N]):
                 VDomElement() as new_vdom,
             ) if node_dom.tag == new_vdom.tag:
                 if node_dom.props != new_vdom.props and node_dom.node is not None:
-                    node_dom.node.apply(cls._diff_props(node_dom.props, new_vdom.props))
+                    node_dom.node.apply(
+                        self._diff_props(node_dom.props, new_vdom.props)
+                    )
 
-                (new_children, patches_to_self) = cls._patch_children(
+                (new_children, patches_to_self) = self._patch_children(
                     dispatch,
                     node_dom.children,
                     new_vdom.children,
@@ -151,17 +174,17 @@ class Alfort(Generic[S, M, N]):
                 )
             case (_, str() as new_text):
                 cur_node = node_dom.node if node_dom is not None else None
-                new_node = cls.create_text(new_text, dispatch)
-                patches_to_parent = cls._diff_node(cur_node, new_node)
+                new_node = self.create_text(new_text, dispatch)
+                patches_to_parent = self._diff_node(cur_node, new_node)
                 return (NodeDomText(value=new_text, node=new_node), patches_to_parent)
             case (_, VDomElement() as new_vdom):
                 cur_node = node_dom.node if node_dom is not None else None
-                new_node = cls.create_element(
+                new_node = self.create_element(
                     new_vdom.tag, new_vdom.props, [], dispatch
                 )
-                patches_to_parent = cls._diff_node(cur_node, new_node)
+                patches_to_parent = self._diff_node(cur_node, new_node)
 
-                (new_children, patches_to_self) = cls._patch_children(
+                (new_children, patches_to_self) = self._patch_children(
                     dispatch, [], new_vdom.children
                 )
                 for p in patches_to_self:
@@ -179,32 +202,26 @@ class Alfort(Generic[S, M, N]):
             case (_, _):
                 raise AssertionError(f"unexpected: {node_dom} {new_vdom}")
 
-    @classmethod
     def _main(
-        cls,
-        init: Init[S, M],
-        view: View[S],
-        update: Update[M, S],
-        root_node: N,
-        enqueue: Enqueue = lambda render: render(),
+        self,
+        root_node: Node = _FakeRootNode(),
     ) -> None:
-        state, effects = init()
+        state, effects = self._init()
         root = NodeDomElement(tag="__root__", props={}, children=[], node=root_node)
-
-        def rooted_view(state: S) -> VDom:
-            return VDomElement("__root__", {}, [view(state)])
 
         def render() -> None:
             nonlocal state
             nonlocal root
-            (root, _) = cls.patch(dispatch, root, rooted_view(state))
+            (root, _) = self.patch(
+                dispatch, root, VDomElement("__root__", {}, [self._view(state)])
+            )
 
         def dispatch(msg: M) -> None:
             nonlocal state
             nonlocal root
-            (state, effects) = update(msg, state)
-            enqueue(render)
-            cls._run_effects(dispatch, effects)
+            (state, effects) = self._update(msg, state)
+            self._enqueue(render)
+            self._run_effects(dispatch, effects)
 
-        enqueue(render)
-        cls._run_effects(dispatch, effects)
+        self._enqueue(render)
+        self._run_effects(dispatch, effects)

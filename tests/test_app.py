@@ -3,8 +3,8 @@ from typing import Any, Callable, Generic, TypeVar
 
 import pytest
 
-from alfort import Alfort, Dispatch, Effect, Init, Update, View
-from alfort.app import Enqueue, NodeDom, NodeDomElement, NodeDomText
+from alfort import Alfort, Dispatch, Effect
+from alfort.app import NodeDom, NodeDomElement, NodeDomText
 from alfort.vdom import (
     Node,
     Patch,
@@ -55,29 +55,22 @@ class MockNode(Node):
 class AlfortMock(Alfort[dict[str, Any], Any, MockNode]):
     mock_target: MockNode = MockNode()
 
-    @classmethod
     def create_element(
-        cls,
+        self,
         tag: str,
         props: Props,
         children: list[MockNode],
         dispatch: Dispatch[Any],
     ) -> MockNode:
-        return cls.mock_target
+        return AlfortMock.mock_target
 
-    @classmethod
-    def create_text(cls, text: str, dispatch: Dispatch[Any]) -> MockNode:
-        return cls.mock_target
+    def create_text(self, text: str, dispatch: Dispatch[Any]) -> MockNode:
+        return AlfortMock.mock_target
 
-    @classmethod
     def main(
-        cls,
-        init: Init[dict[str, Any], Any],
-        view: View[dict[str, Any]],
-        update: Update[Any, dict[str, Any]],
+        self,
     ) -> None:
-
-        cls._main(init=init, view=view, update=update, root_node=cls.mock_target)
+        self._main(root_node=AlfortMock.mock_target)
 
 
 @pytest.mark.parametrize(
@@ -132,10 +125,15 @@ def test_apply_patch(
     def dispatch(_: Any) -> None:
         pass
 
-    (node_dom, _) = AlfortMock.patch(dispatch, None, old_vdom)
+    app = AlfortMock(
+        init=lambda: ({}, []),
+        view=lambda state: "",
+        update=lambda _, state: (state, []),
+    )
+    (node_dom, _) = app.patch(dispatch, None, old_vdom)
     AlfortMock.mock_target.patches.clear()
 
-    (node, patches_to_parent) = AlfortMock.patch(dispatch, node_dom, new_vdom)
+    (node, patches_to_parent) = app.patch(dispatch, node_dom, new_vdom)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
     assert [type(p) for p in AlfortMock.mock_target.patches] == expected_patches
 
@@ -166,10 +164,15 @@ def test_apply_remove_child_patch(
     def dispatch(_: Any) -> None:
         pass
 
-    (node, _) = AlfortMock.patch(dispatch, None, old_vdom)
+    app = AlfortMock(
+        init=lambda: ({}, []),
+        view=lambda state: "",
+        update=lambda _, state: (state, []),
+    )
+    (node, _) = app.patch(dispatch, None, old_vdom)
     AlfortMock.mock_target.patches.clear()
 
-    (node, patches_to_parent) = AlfortMock.patch(dispatch, node, None)
+    (node, patches_to_parent) = app.patch(dispatch, node, None)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
     assert [type(p) for p in AlfortMock.mock_target.patches] == expected_patches
 
@@ -206,17 +209,15 @@ class TextNode(Node):
 
 
 class AlfortText(Alfort[dict[str, Any], Msg, TextNode | RootNode[TextNode]]):
-    @classmethod
     def create_text(
-        cls,
+        self,
         text: str,
         dispatch: Dispatch[Msg],
     ) -> TextNode:
         return TextNode(text, dispatch)
 
-    @classmethod
     def create_element(
-        cls,
+        self,
         tag: str,
         props: Props,
         children: list[TextNode | RootNode[TextNode]],
@@ -224,18 +225,11 @@ class AlfortText(Alfort[dict[str, Any], Msg, TextNode | RootNode[TextNode]]):
     ) -> RootNode[TextNode]:
         return RootNode()
 
-    @classmethod
     def main(
-        cls,
-        init: Init[dict[str, Any], Msg],
-        view: View[dict[str, Any]],
-        update: Update[Msg, dict[str, Any]],
+        self,
         root_node: RootNode[TextNode],
-        enqueue: Enqueue = lambda render: render(),
     ) -> None:
-        cls._main(
-            init=init, view=view, update=update, root_node=root_node, enqueue=enqueue
-        )
+        self._main(root_node=root_node)
 
 
 def test_update_state() -> None:
@@ -256,7 +250,8 @@ def test_update_state() -> None:
             case CountDown(value):
                 return ({"count": state["count"] - value}, [])
 
-    AlfortText.main(init=init, view=view, update=update, root_node=root)
+    app = AlfortText(init=init, view=view, update=update)
+    app.main(root)
 
     assert root.child is not None
     assert root.child.text == "3"
@@ -298,9 +293,8 @@ def test_enqueue() -> None:
     ) -> tuple[dict[str, int], list[Effect[Msg]]]:
         return (state, [])
 
-    AlfortText.main(
-        init=init, view=view, update=update, root_node=root, enqueue=enqueue
-    )
+    app = AlfortText(init=init, view=view, update=update, enqueue=enqueue)
+    app.main(root)
 
     assert view_values == [None]
     render()
