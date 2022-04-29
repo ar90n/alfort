@@ -23,10 +23,10 @@ M = TypeVar("M")
 
 Dispatch: TypeAlias = Callable[[M], None]
 Effect: TypeAlias = Callable[[Dispatch[M]], None]
-View: TypeAlias = Callable[[S], VDom | None]
-Update: TypeAlias = Callable[[M, S], tuple[S, list[Effect[M]]]]
 Init: TypeAlias = Callable[[], tuple[S, list[Effect[M]]]]
-Mount: TypeAlias = Callable[[N], None]
+View: TypeAlias = Callable[[S], VDom]
+Update: TypeAlias = Callable[[M, S], tuple[S, list[Effect[M]]]]
+Enqueue: TypeAlias = Callable[[Callable[[], None]], None]
 
 
 @dataclass(slots=True, frozen=True)
@@ -185,20 +185,26 @@ class Alfort(Generic[S, M, N]):
         init: Init[S, M],
         view: View[S],
         update: Update[M, S],
-        mount: Mount[N],
+        root_node: N,
+        enqueue: Enqueue = lambda render: render(),
     ) -> None:
         state, effects = init()
-        root = None
+        root = NodeDomElement(tag="__root__", props={}, children=[], node=root_node)
+
+        def rooted_view(state: S) -> VDom:
+            return VDomElement("__root__", {}, [view(state)])
+
+        def render() -> None:
+            nonlocal state
+            nonlocal root
+            (root, _) = cls.patch(dispatch, root, rooted_view(state))
 
         def dispatch(msg: M) -> None:
             nonlocal state
             nonlocal root
             (state, effects) = update(msg, state)
+            enqueue(render)
             cls._run_effects(dispatch, effects)
-            (root, _) = cls.patch(dispatch, root, view(state))
 
+        enqueue(render)
         cls._run_effects(dispatch, effects)
-        (root, _) = cls.patch(dispatch, None, view(state))
-
-        if root is not None and root.node is not None:
-            mount(root.node)
