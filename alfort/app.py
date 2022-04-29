@@ -43,6 +43,14 @@ class NodeDomText:
 NodeDom = NodeDomElement | NodeDomText
 
 
+class _FakeRootNode(Node):
+    def __init__(self) -> None:
+        pass
+
+    def apply(self, patch: Patch) -> None:
+        pass
+
+
 class Alfort(Generic[S, M, N]):
     _init: Init[S, M]
     _view: View[S]
@@ -196,7 +204,7 @@ class Alfort(Generic[S, M, N]):
 
     def _main(
         self,
-        root_node: N,
+        root_node: Node = _FakeRootNode(),
     ) -> None:
         state, effects = self._init()
         root = NodeDomElement(tag="__root__", props={}, children=[], node=root_node)
