@@ -3,11 +3,13 @@ from typing import Any, Generic, MutableMapping, Protocol, TypeAlias, TypeVar
 
 T = TypeVar("T")
 
+Props: TypeAlias = MutableMapping[str, Any]
+
 
 @dataclass(slots=True, frozen=True)
 class PatchProps:
     remove_keys: list[str]
-    add_props: "Props"
+    add_props: Props
 
 
 @dataclass(slots=True, frozen=True)
@@ -37,7 +39,7 @@ class Node(Protocol):
 @dataclass(slots=True, frozen=True)
 class Element(Generic[T]):
     tag: str
-    props: "Props"
+    props: Props
     children: list[T]
 
 
@@ -47,9 +49,6 @@ class VDomElement(Element["VDom"]):
 
 
 VDom = VDomElement | str
-
-
-Props: TypeAlias = MutableMapping[str, Any]
 
 
 def el(
