@@ -144,15 +144,15 @@ It is `Patche`.  So you have to implement some codes to handle some patches.
 ## For development
 ### Install Poery plugins
 ```bash
-$ poetry plugin add poethepoet[poetry_plugin]
+$ poetry plugin add "poethepoet[poetry_plugin]"
 ```
 
-### Ron tests
+### Run tests
 ```bash
 $ poetry poe test
 ```
 
-### Ron linter and formatter
+### Run linter and formatter
 ```bash
 $ poetry poe check
 ```
