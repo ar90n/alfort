@@ -2,10 +2,13 @@ import curses
 from enum import Enum, auto
 from typing import Any, Callable
 
-from alfort import Alfort, Dispatch, Effect, Init, Update, View
+from alfort import Alfort, Dispatch, Effect
+from alfort.sub import Subscribe, UnSubscribe, subscription
 from alfort.vdom import Node, Patch, PatchText, Props, VDom
 
 handlers: dict[str, Callable[[], None]] = {}
+
+stdscr = curses.initscr()
 
 
 class Msg(Enum):
@@ -16,10 +19,7 @@ class Msg(Enum):
 class TextNode(Node):
     stdscr: Any
 
-    def __init__(self, text: str, dispatch: Dispatch[Msg], stdscr: Any) -> None:
-        self._stdscr = stdscr
-        handlers["u"] = lambda: dispatch(Msg.Up)
-        handlers["d"] = lambda: dispatch(Msg.Down)
+    def __init__(self, text: str, dispatch: Dispatch[Msg]) -> None:
         self._draw_text(text)
 
     def apply(self, patch: Patch) -> None:
@@ -30,30 +30,18 @@ class TextNode(Node):
                 raise ValueError(f"Invalid patch: {patch}")
 
     def _draw_text(self, text: str) -> None:
-        self._stdscr.addstr(0, 0, text)
-        self._stdscr.clrtoeol()
-        self._stdscr.refresh()
+        stdscr.addstr(0, 0, text)
+        stdscr.clrtoeol()
+        stdscr.refresh()
 
 
 class AlfortSimpleCounter(Alfort[int, Msg, TextNode]):
-    stdscr: Any
-
-    def __init__(
-        self,
-        init: Init[int, Msg],
-        view: View[int],
-        update: Update[Msg, int],
-        stdscr: Any,
-    ) -> None:
-        super().__init__(init=init, view=view, update=update)
-        self.stdscr = stdscr
-
     def create_text(
         self,
         text: str,
         dispatch: Dispatch[Msg],
     ) -> TextNode:
-        return TextNode(text, dispatch, self.stdscr)
+        return TextNode(text, dispatch)
 
     def create_element(
         self,
@@ -67,18 +55,12 @@ class AlfortSimpleCounter(Alfort[int, Msg, TextNode]):
     def main(
         self,
     ) -> None:
-        self.stdscr.clear()
         self._main()
-        while True:
-            c = chr(self.stdscr.getch())
-            if c == "q":
-                break
-            if handle := handlers.get(c):
-                handle()
 
 
 def main(stdscr: Any) -> None:
     curses.curs_set(0)
+    stdscr.clear()
 
     def view(state: int) -> VDom:
         return f"Count(press 'u' - up, 'd' - down', 'q' - quit): {state}"
@@ -93,9 +75,29 @@ def main(stdscr: Any) -> None:
             case Msg.Down:
                 return (state - 1, [])
 
-    app = AlfortSimpleCounter(init=init, view=view, update=update, stdscr=stdscr)
+    def subscriptions(state: int) -> list[Subscribe[Msg]]:
+        @subscription()
+        def on_keydown(dispatch: Dispatch[Msg]) -> UnSubscribe:
+            handlers["u"] = lambda: dispatch(Msg.Up)
+            handlers["d"] = lambda: dispatch(Msg.Down)
+            return lambda: handlers.clear()
+
+        return [on_keydown]
+
+    app = AlfortSimpleCounter(
+        init=init, view=view, update=update, subscriptions=subscriptions
+    )
     app.main()
+    while True:
+        c = chr(stdscr.getch())
+        if c == "q":
+            break
+        if handle := handlers.get(c):
+            handle()
 
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    try:
+        main(stdscr)
+    finally:
+        curses.endwin()
