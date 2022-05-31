@@ -9,7 +9,7 @@ include = ["alfort/py.typed"]
 [tool.poetry.dependencies]
 python = "^3.10"
 
-[tool.poetry.group.dev.dependencies]
+[tool.poetry.dev-dependencies]
 poethepoet = "^0.13.1"
 pyright = "^1.1.238"
 pytest = "^7.1.1"

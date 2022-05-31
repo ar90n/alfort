@@ -2,7 +2,7 @@
 name = "alfort"
 version = "0.0.0-dev"
 description = ""
-category = "main"
+category = "dev"
 optional = false
 python-versions = "^3.10"
 develop = false

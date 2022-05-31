@@ -5,6 +5,7 @@ import pytest
 
 from alfort import Alfort, Dispatch, Effect
 from alfort.app import NodeDom, NodeDomElement, NodeDomText
+from alfort.sub import Subscribe, UnSubscribe, subscription
 from alfort.vdom import (
     Node,
     Patch,
@@ -299,3 +300,54 @@ def test_enqueue() -> None:
     assert view_values == [None]
     render()
     assert view_values == [None, "5"]
+
+
+def test_subscriptions() -> None:
+    root = RootNode[TextNode]()
+
+    def view(state: dict[str, int]) -> VDom:
+        return str(state["count"])
+
+    def init() -> tuple[dict[str, int], list[Effect[Msg]]]:
+        return ({"count": 0}, [])
+
+    def update(
+        msg: Msg, state: dict[str, int]
+    ) -> tuple[dict[str, int], list[Effect[Msg]]]:
+        match msg:
+            case CountUp(value):
+                return ({"count": state["count"] + value}, [])
+            case CountDown(value):
+                return ({"count": state["count"] - value}, [])
+
+    countup = None
+
+    def subscriptions(state: dict[str, int]) -> list[Subscribe[Msg]]:
+        @subscription()
+        def on_countup(dispatch: Dispatch[Msg]) -> UnSubscribe:
+            nonlocal countup
+
+            def _countup() -> None:
+                dispatch(CountUp(1))
+
+            countup = _countup
+
+            def _unsubscribe():
+                nonlocal countup
+                countup = None
+
+            return _unsubscribe
+
+        return [on_countup] if state["count"] < 2 else []
+
+    app = AlfortText(init=init, view=view, update=update, subscriptions=subscriptions)
+    app.main(root)
+
+    assert root.child is not None
+    assert root.child.text == "0"
+    assert countup is not None
+    countup()
+    assert root.child.text == "1"
+    countup()
+    assert root.child.text == "2"
+    assert countup is None

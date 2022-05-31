@@ -5,6 +5,16 @@ try:
 except PackageNotFoundError:
     __version__: str = "unknown"
 
+from . import sub
 from .app import Alfort, Dispatch, Effect, Enqueue, Init, Update, View
 
-__all__ = ["Alfort", "Dispatch", "Effect", "View", "Update", "Init", "Enqueue"]
+__all__ = [
+    "Alfort",
+    "Dispatch",
+    "Effect",
+    "View",
+    "Update",
+    "Init",
+    "Enqueue",
+    "sub",
+]
