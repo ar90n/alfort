@@ -223,10 +223,11 @@ class Alfort(Generic[S, M, N]):
         def dispatch(msg: M) -> None:
             nonlocal state
             nonlocal root
-            (state, effects) = self._update(msg, state)
-            # TODO: should check state has been changed
-            self._subscriber.update(state, dispatch)
-            self._enqueue(render)
+            old_state = state
+            (state, effects) = self._update(msg, old_state)
+            if state != old_state:
+                self._subscriber.update(state, dispatch)
+                self._enqueue(render)
             self._run_effects(dispatch, effects)
 
         self._subscriber.update(state, dispatch)
