@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Any, Callable
 
 from alfort import Alfort, Dispatch, Effect
-from alfort.sub import Subscribe, UnSubscribe, subscription
+from alfort.sub import Subscription, UnSubscription, subscription
 from alfort.vdom import Node, Patch, PatchText, Props, VDom
 
 handlers: dict[str, Callable[[], None]] = {}
@@ -75,9 +75,9 @@ def main(stdscr: Any) -> None:
             case Msg.Down:
                 return (state - 1, [])
 
-    def subscriptions(state: int) -> list[Subscribe[Msg]]:
+    def subscriptions(state: int) -> list[Subscription[Msg]]:
         @subscription()
-        def on_keydown(dispatch: Dispatch[Msg]) -> UnSubscribe:
+        def on_keydown(dispatch: Dispatch[Msg]) -> UnSubscription:
             handlers["u"] = lambda: dispatch(Msg.Up)
             handlers["d"] = lambda: dispatch(Msg.Down)
             return lambda: handlers.clear()

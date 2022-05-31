@@ -5,7 +5,7 @@ import pytest
 
 from alfort import Alfort, Dispatch, Effect
 from alfort.app import NodeDom, NodeDomElement, NodeDomText
-from alfort.sub import Subscribe, UnSubscribe, subscription
+from alfort.sub import Subscription, UnSubscription, subscription
 from alfort.vdom import (
     Node,
     Patch,
@@ -322,9 +322,9 @@ def test_subscriptions() -> None:
 
     countup = None
 
-    def subscriptions(state: dict[str, int]) -> list[Subscribe[Msg]]:
+    def subscriptions(state: dict[str, int]) -> list[Subscription[Msg]]:
         @subscription()
-        def on_countup(dispatch: Dispatch[Msg]) -> UnSubscribe:
+        def on_countup(dispatch: Dispatch[Msg]) -> UnSubscription:
             nonlocal countup
 
             def _countup() -> None:

@@ -4,14 +4,14 @@ Msg = TypeVar("Msg")
 State = TypeVar("State")
 
 Dispatch: TypeAlias = Callable[[Msg], None]
-UnSubscribe: TypeAlias = Callable[[], None]
-Subscribe: TypeAlias = Callable[[Dispatch[Msg]], UnSubscribe]
-Subscriptions: TypeAlias = Callable[[State], list[Subscribe[Msg]]]
+UnSubscription: TypeAlias = Callable[[], None]
+Subscription: TypeAlias = Callable[[Dispatch[Msg]], UnSubscription]
+Subscriptions: TypeAlias = Callable[[State], list[Subscription[Msg]]]
 
 
-class Subscriber(Generic[State, Msg]):
+class Context(Generic[State, Msg]):
     _subscriptions: Subscriptions[State, Msg] | None
-    _unsubscribes: dict[Subscribe[Msg], UnSubscribe] = {}
+    _unsubscriptions: dict[Subscription[Msg], UnSubscription] = {}
 
     def __init__(
         self,
@@ -23,24 +23,24 @@ class Subscriber(Generic[State, Msg]):
         if self._subscriptions is None:
             return
 
-        rem_unscribes = self._unsubscribes
-        self._unsubscribes = {}
+        rem_unscribes = self._unsubscriptions
+        self._unsubscriptions = {}
         for s in self._subscriptions(state):
             if us := rem_unscribes.pop(s, None):
-                self._unsubscribes[s] = us
+                self._unsubscriptions[s] = us
             else:
-                self._unsubscribes[s] = s(dispatch)
+                self._unsubscriptions[s] = s(dispatch)
 
         for us in rem_unscribes.values():
             us()
 
 
-class _Subscription(Generic[Msg]):
-    def __init__(self, fun: Subscribe[Msg], key: Hashable) -> None:
+class SubscriptionWithKey(Generic[Msg]):
+    def __init__(self, fun: Subscription[Msg], key: Hashable) -> None:
         self._key = key
         self._fun = fun
 
-    def __call__(self, dispatch: Dispatch[Msg]) -> UnSubscribe:
+    def __call__(self, dispatch: Dispatch[Msg]) -> UnSubscription:
         return self._fun(dispatch)
 
     def __eq__(self, other: Any) -> bool:
@@ -57,9 +57,9 @@ class _Subscription(Generic[Msg]):
 
 def subscription(
     key: Any | None = None,
-) -> Callable[[Subscribe[Msg]], _Subscription[Msg]]:
-    def _constructor(f: Callable[[Any], UnSubscribe]) -> _Subscription[Msg]:
+) -> Callable[[Subscription[Msg]], SubscriptionWithKey[Msg]]:
+    def _constructor(f: Subscription[Msg]) -> SubscriptionWithKey[Msg]:
         _key = key if key is not None else tuple(f.__code__.co_lines())
-        return _Subscription[Msg](f, _key)
+        return SubscriptionWithKey[Msg](f, _key)
 
     return _constructor

@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 from itertools import zip_longest
 from typing import Callable, Generic, TypeAlias, TypeVar
 
-from alfort.sub import Subscriber, Subscriptions
+from alfort.sub import Context, Subscriptions
 from alfort.vdom import (
     Element,
     Node,
@@ -57,7 +57,7 @@ class Alfort(Generic[S, M, N]):
     _view: View[S]
     _update: Update[M, S]
     _enqueue: Enqueue
-    _subscriber: Subscriber[S, M]
+    _subscriber: Context[S, M]
 
     @classmethod
     def _run_effects(cls, dispatch: Dispatch[M], effects: list[Effect[M]]) -> None:
@@ -106,7 +106,7 @@ class Alfort(Generic[S, M, N]):
         self._view = view
         self._update = update
         self._enqueue = enqueue
-        self._subscriber = Subscriber(subscriptions)
+        self._subscriber = Context(subscriptions)
 
     @abstractmethod
     def create_element(
