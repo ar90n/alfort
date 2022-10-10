@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, TypeVar
 
@@ -19,6 +20,10 @@ from alfort.vdom import (
 )
 
 T = TypeVar("T", bound=Node)
+
+
+def get_other_tasks() -> set[asyncio.Task[Any]]:
+    return asyncio.all_tasks() - {asyncio.current_task()}
 
 
 def to_vnode(node_dom: NodeDom) -> VDom:
@@ -240,7 +245,10 @@ def test_update_state() -> None:
         return str(state["count"])
 
     def init() -> tuple[dict[str, int], list[Effect[Msg]]]:
-        return ({"count": 0}, [lambda dispatch: dispatch(CountUp(3))])
+        async def _e(dispatch: Dispatch[Msg]) -> None:
+            dispatch(CountUp(3))
+
+        return ({"count": 0}, [_e])
 
     def update(
         msg: Msg, state: dict[str, int]
@@ -252,14 +260,18 @@ def test_update_state() -> None:
                 return ({"count": state["count"] - value}, [])
 
     app = AlfortText(init=init, view=view, update=update)
-    app.main(root)
 
-    assert root.child is not None
-    assert root.child.text == "3"
-    root.child.dispatch(CountUp())
-    assert root.child.text == "4"
-    root.child.dispatch(CountDown())
-    assert root.child.text == "3"
+    async def main_loop() -> None:
+        app.main(root)
+        await asyncio.gather(*get_other_tasks())
+        assert root.child is not None
+        assert root.child.text == "3"
+        root.child.dispatch(CountUp())
+        assert root.child.text == "4"
+        root.child.dispatch(CountDown())
+        assert root.child.text == "3"
+
+    asyncio.run(main_loop())
 
 
 def test_enqueue() -> None:
@@ -287,7 +299,13 @@ def test_enqueue() -> None:
         return str(state["count"])
 
     def init() -> tuple[dict[str, int], list[Effect[Msg]]]:
-        return ({"count": 5}, [capture, lambda d: enqueue(lambda: capture(d))])
+        async def _e0(d: Dispatch[Msg]) -> None:
+            capture(d)
+
+        async def _e1(d: Dispatch[Msg]) -> None:
+            enqueue(lambda: capture(d))
+
+        return ({"count": 5}, [_e0, _e1])
 
     def update(
         msg: Msg, state: dict[str, int]
@@ -295,11 +313,16 @@ def test_enqueue() -> None:
         return (state, [])
 
     app = AlfortText(init=init, view=view, update=update, enqueue=enqueue)
-    app.main(root)
 
-    assert view_values == [None]
-    render()
-    assert view_values == [None, "5"]
+    async def main_loop() -> None:
+        app.main(root)
+        await asyncio.gather(*get_other_tasks())
+
+        assert view_values == [None]
+        render()
+        assert view_values == [None, "5"]
+
+    asyncio.run(main_loop())
 
 
 def test_subscriptions() -> None:
@@ -341,13 +364,18 @@ def test_subscriptions() -> None:
         return [on_countup] if state["count"] < 2 else []
 
     app = AlfortText(init=init, view=view, update=update, subscriptions=subscriptions)
-    app.main(root)
 
-    assert root.child is not None
-    assert root.child.text == "0"
-    assert countup is not None
-    countup()
-    assert root.child.text == "1"
-    countup()
-    assert root.child.text == "2"
-    assert countup is None
+    async def main_loop() -> None:
+        app.main(root)
+        await asyncio.gather(*get_other_tasks())
+
+        assert root.child is not None
+        assert root.child.text == "0"
+        assert countup is not None
+        countup()
+        assert root.child.text == "1"
+        countup()
+        assert root.child.text == "2"
+        assert countup is None
+
+    asyncio.run(main_loop())

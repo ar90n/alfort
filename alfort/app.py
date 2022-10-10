@@ -1,7 +1,8 @@
+import asyncio
 from abc import abstractmethod
 from dataclasses import dataclass, replace
 from itertools import zip_longest
-from typing import Callable, Generic, TypeAlias, TypeVar
+from typing import Any, Callable, Coroutine, Generic, TypeAlias, TypeVar
 
 from alfort.sub import Context, Subscriptions
 from alfort.vdom import (
@@ -23,7 +24,7 @@ S = TypeVar("S")
 M = TypeVar("M")
 
 Dispatch: TypeAlias = Callable[[M], None]
-Effect: TypeAlias = Callable[[Dispatch[M]], None]
+Effect: TypeAlias = Callable[[Dispatch[M]], Coroutine[None, None, Any]]
 Init: TypeAlias = Callable[[], tuple[S, list[Effect[M]]]]
 View: TypeAlias = Callable[[S], VDom]
 Update: TypeAlias = Callable[[M, S], tuple[S, list[Effect[M]]]]
@@ -62,7 +63,7 @@ class Alfort(Generic[S, M, N]):
     @classmethod
     def _run_effects(cls, dispatch: Dispatch[M], effects: list[Effect[M]]) -> None:
         for e in effects:
-            e(dispatch)
+            asyncio.create_task(e(dispatch))
 
     @classmethod
     def _diff_props(cls, node_props: Props, vdom_props: Props) -> PatchProps:
