@@ -144,7 +144,7 @@ It is `Patche`.  So you have to implement some codes to handle some patches.
 ## For development
 ### Install Poery plugins
 ```bash
-$ poetry plugin add "poethepoet[poetry_plugin]"
+$ poetry self add "poethepoet[poetry_plugin]"
 ```
 
 ### Run tests

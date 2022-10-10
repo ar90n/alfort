@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alfort"
-version = "0.0.0-dev"
+version = "0.0.0"
 description = ""
 authors = ["Masahiro Wada <argon.argon.argon@gmail.com>"]
 license = "Apache-2.0"
@@ -43,11 +43,13 @@ testpaths = [
     "tests"
 ]
 
-[tool.poetry-version-plugin]
-source = "git-tag"
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "semver"
 
 [tool.poe.tasks]
 test = "pytest"
 check = "pre-commit run -a"
-install-plugins = "poetry plugin add poethepoet[poetry_plugin]"
+install-plugins = "poetry self add poethepoet[poetry_plugin]"
 install-pre-commit = "pre-commit install"
