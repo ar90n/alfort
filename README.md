@@ -126,7 +126,7 @@ If you need more exmplaes, please check the [examples](https://github.com/ar90n/
 ## Concept
 Alfort is inspired by TEA(The Elm Architecture). So Alfort makes you create an interactive application with `View`, `Model` and `Update`. If you need more specification about TEA, please see this [documentation](https://guide.elm-lang.org/architecture/).
 
-Therefore, Alfort doesn't support Command. So Alfort uses functions whose type is `Callable[[Callable[[Msg], None]], None]` to achieve side effect.
+Therefore, Alfort doesn't support Command. So Alfort uses functions whose type is `Callable[[Callable[[Msg], None]], Coroutine[None, None, Any]]` to achieve side effect.
 You can run some tasks which have side effects in this function.  And, if you need, you can pass the result of side effect as Message to `dicpatch` which is given as an argument.
 This idea is inspired by [hyperapp](https://github.com/jorgebucaran/hyperapp).
 

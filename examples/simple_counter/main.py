@@ -1,3 +1,4 @@
+import asyncio
 import curses
 from enum import Enum, auto
 from typing import Any, Callable
@@ -52,10 +53,16 @@ class AlfortSimpleCounter(Alfort[int, Msg, TextNode]):
     ) -> TextNode:
         raise ValueError("create_element should not be called")
 
-    def main(
+    async def main(
         self,
     ) -> None:
         self._main()
+        while True:
+            c = chr(stdscr.getch())
+            if c == "q":
+                break
+            if handle := handlers.get(c):
+                handle()
 
 
 def main(stdscr: Any) -> None:
@@ -87,13 +94,7 @@ def main(stdscr: Any) -> None:
     app = AlfortSimpleCounter(
         init=init, view=view, update=update, subscriptions=subscriptions
     )
-    app.main()
-    while True:
-        c = chr(stdscr.getch())
-        if c == "q":
-            break
-        if handle := handlers.get(c):
-            handle()
+    asyncio.run(app.main())
 
 
 if __name__ == "__main__":
