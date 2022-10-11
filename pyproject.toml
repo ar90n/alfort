@@ -13,7 +13,7 @@ include = ["alfort/py.typed"]
 [tool.poetry.dependencies]
 python = "^3.10"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 poethepoet = "^0.16.0"
 pyright = "^1.1.238"
 pytest = "^7.1.1"
@@ -26,8 +26,8 @@ flake8 = "^5.0.0"
 commitizen = "^2.35.0"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.isort]
 profile = "black"
