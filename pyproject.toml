@@ -1,10 +1,14 @@
 [tool.poetry]
 name = "alfort"
 version = "0.0.0"
-description = ""
+description = "Elm-like interactive application framework for Python"
 authors = ["Masahiro Wada <argon.argon.argon@gmail.com>"]
 license = "Apache-2.0"
+repository = "https://github.com/ar90n/alfort"
+readme = "README.md"
+keywords = ["declarative-ui", "elm-architecture"]
 include = ["alfort/py.typed"]
+
 
 [tool.poetry.dependencies]
 python = "^3.10"
