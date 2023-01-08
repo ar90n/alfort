@@ -168,7 +168,7 @@ $ poetry poe check
 [download-url]: https://pypi.org/project/alfort/
 [version-shield]: https://img.shields.io/pypi/v/alfort?style=flat
 [version-url]: https://pypi.org/project/alfort/
-[build-shiled]: https://img.shields.io/github/workflow/status/ar90n/alfort/CI%20testing/main
+[build-shiled]: https://img.shields.io/github/actions/workflow/status/ar90n/alfort/ci-testing.yml
 [build-url]: https://github.com/ar90n/alfort/actions/workflows/ci-testing.yml
 [contributors-shield]: https://img.shields.io/github/contributors/ar90n/alfort.svg?style=flat
 [contributors-url]: https://github.com/ar90n/alfort/graphs/contributors
