@@ -23,7 +23,7 @@ pytest-black = "^0.3.12"
 pre-commit = "^3.0.0"
 isort = "^5.10.1"
 commitizen = "^3.0.1"
-ruff = "^0.0.267"
+ruff = "^0.0.269"
 docformatter = "^1.6.2"
 
 [build-system]
