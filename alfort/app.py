@@ -112,12 +112,10 @@ class Alfort(Generic[S, M, N]):
     @abstractmethod
     def create_element(
         self, tag: str, props: Props, children: list[N], dispatch: Dispatch[M]
-    ) -> N:
-        ...
+    ) -> N: ...
 
     @abstractmethod
-    def create_text(self, text: str, dispatch: Dispatch[M]) -> N:
-        ...
+    def create_text(self, text: str, dispatch: Dispatch[M]) -> N: ...
 
     def _patch_children(
         self,
