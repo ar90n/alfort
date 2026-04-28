@@ -303,19 +303,18 @@ files = [
 
 [[package]]
 name = "docformatter"
-version = "1.7.1"
+version = "1.7.8"
 description = "Formats docstrings to follow PEP 257"
 category = "dev"
 optional = false
-python-versions = ">=3.7,<4.0"
+python-versions = "<4.0,>=3.10"
 files = [
-    {file = "docformatter-1.7.1-py3-none-any.whl", hash = "sha256:23ce0b5a540d14c420bb0f7ebef4299041a76d008ac92e50fe71937ca9e56c02"},
-    {file = "docformatter-1.7.1.tar.gz", hash = "sha256:34644db7d9781bde65a729c023940de26b61a39e3432eb35e9de3ddfe25d740a"},
+    {file = "docformatter-1.7.8-py3-none-any.whl", hash = "sha256:8e518948bacb8d8df5d5f625060e214a200f0a908d8e6797c9ebbdd2cdd17467"},
+    {file = "docformatter-1.7.8.tar.gz", hash = "sha256:6589b62a8f38c62c4c8c84cb1afa296af007c88c959e4c9d25c74c1f933c4dbf"},
 ]
 
 [package.dependencies]
 charset_normalizer = ">=3.0.0,<4.0.0"
-untokenize = ">=0.1.1,<0.2.0"
 
 [package.extras]
 tomli = ["tomli (>=2.0.0,<3.0.0)"]
@@ -899,17 +898,6 @@ python-versions = ">=3.7"
 files = [
     {file = "tomlkit-0.11.7-py3-none-any.whl", hash = "sha256:5325463a7da2ef0c6bbfefb62a3dc883aebe679984709aee32a317907d0a8d3c"},
     {file = "tomlkit-0.11.7.tar.gz", hash = "sha256:f392ef70ad87a672f02519f99967d28a4d3047133e2d1df936511465fbb3791d"},
-]
-
-[[package]]
-name = "untokenize"
-version = "0.1.1"
-description = "Transforms tokens into original source code (while preserving whitespace)."
-category = "dev"
-optional = false
-python-versions = "*"
-files = [
-    {file = "untokenize-0.1.1.tar.gz", hash = "sha256:3865dbbbb8efb4bb5eaa72f1be7f3e0be00ea8b7f125c69cbd1f5fda926f37a2"},
 ]
 
 [[package]]
