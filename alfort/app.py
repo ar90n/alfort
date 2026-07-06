@@ -112,12 +112,10 @@ class Alfort(Generic[S, M, N]):
     @abstractmethod
     def create_element(
         self, tag: str, props: Props, children: list[N], dispatch: Dispatch[M]
-    ) -> N:
-        ...
+    ) -> N: ...
 
     @abstractmethod
-    def create_text(self, text: str, dispatch: Dispatch[M]) -> N:
-        ...
+    def create_text(self, text: str, dispatch: Dispatch[M]) -> N: ...
 
     def _patch_children(
         self,
@@ -128,7 +126,7 @@ class Alfort(Generic[S, M, N]):
         new_children: list[NodeDom] = []
         patches_to_parent: list[Patch] = []
         for n, vd in zip_longest(node_children, vdom_children):
-            (new_child, patches_to_self) = self.patch(dispatch, n, vd)
+            new_child, patches_to_self = self.patch(dispatch, n, vd)
             if new_child is not None:
                 new_children.append(new_child)
             patches_to_parent.extend(patches_to_self)
@@ -159,13 +157,15 @@ class Alfort(Generic[S, M, N]):
             case (
                 NodeDomElement() as node_dom,
                 VDomElement() as new_vdom,
-            ) if node_dom.tag == new_vdom.tag:
+            ) if (
+                node_dom.tag == new_vdom.tag
+            ):
                 if node_dom.props != new_vdom.props and node_dom.node is not None:
                     node_dom.node.apply(
                         self._diff_props(node_dom.props, new_vdom.props)
                     )
 
-                (new_children, patches_to_self) = self._patch_children(
+                new_children, patches_to_self = self._patch_children(
                     dispatch,
                     node_dom.children,
                     new_vdom.children,
@@ -189,7 +189,7 @@ class Alfort(Generic[S, M, N]):
                 )
                 patches_to_parent = self._diff_node(cur_node, new_node)
 
-                (new_children, patches_to_self) = self._patch_children(
+                new_children, patches_to_self = self._patch_children(
                     dispatch, [], new_vdom.children
                 )
                 for p in patches_to_self:
@@ -217,7 +217,7 @@ class Alfort(Generic[S, M, N]):
         def render() -> None:
             nonlocal state
             nonlocal root
-            (root, _) = self.patch(
+            root, _ = self.patch(
                 dispatch, root, VDomElement("__root__", {}, [self._view(state)])
             )
 
@@ -225,7 +225,7 @@ class Alfort(Generic[S, M, N]):
             nonlocal state
             nonlocal root
             old_state = state
-            (state, effects) = self._update(msg, old_state)
+            state, effects = self._update(msg, old_state)
             if state != old_state:
                 self._subscriber.update(state, dispatch)
                 self._enqueue(render)

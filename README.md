@@ -34,7 +34,6 @@ from click import prompt
 from alfort import Alfort, Dispatch, Effect
 from alfort.vdom import Node, Patch, PatchText, Props, VDOM
 
-
 handlers: dict[str, Callable[[], None]] = {}
 
 

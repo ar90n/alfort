@@ -136,10 +136,10 @@ def test_apply_patch(
         view=lambda state: "",
         update=lambda _, state: (state, []),
     )
-    (node_dom, _) = app.patch(dispatch, None, old_vdom)
+    node_dom, _ = app.patch(dispatch, None, old_vdom)
     AlfortMock.mock_target.patches.clear()
 
-    (node, patches_to_parent) = app.patch(dispatch, node_dom, new_vdom)
+    node, patches_to_parent = app.patch(dispatch, node_dom, new_vdom)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
     assert [type(p) for p in AlfortMock.mock_target.patches] == expected_patches
 
@@ -175,10 +175,10 @@ def test_apply_remove_child_patch(
         view=lambda state: "",
         update=lambda _, state: (state, []),
     )
-    (node, _) = app.patch(dispatch, None, old_vdom)
+    node, _ = app.patch(dispatch, None, old_vdom)
     AlfortMock.mock_target.patches.clear()
 
-    (node, patches_to_parent) = app.patch(dispatch, node, None)
+    node, patches_to_parent = app.patch(dispatch, node, None)
     assert [type(p) for p in patches_to_parent] == expected_root_patches
     assert [type(p) for p in AlfortMock.mock_target.patches] == expected_patches
 
