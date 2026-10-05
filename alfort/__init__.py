@@ -12,9 +12,9 @@ __all__ = [
     "Alfort",
     "Dispatch",
     "Effect",
-    "View",
-    "Update",
-    "Init",
     "Enqueue",
+    "Init",
+    "Update",
+    "View",
     "sub",
 ]

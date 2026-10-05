@@ -1,4 +1,5 @@
-from typing import Any, Callable, Generic, Hashable, TypeAlias, TypeVar
+from collections.abc import Callable, Hashable
+from typing import Any, Generic, TypeAlias, TypeVar
 
 Msg = TypeVar("Msg")
 State = TypeVar("State")
@@ -43,7 +44,7 @@ class SubscriptionWithKey(Generic[Msg]):
     def __call__(self, dispatch: Dispatch[Msg]) -> UnSubscription:
         return self._fun(dispatch)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
             return False
         if not isinstance(other._key, type(self._key)):
