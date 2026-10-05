@@ -1,5 +1,6 @@
+from collections.abc import MutableMapping
 from dataclasses import dataclass
-from typing import Any, Generic, MutableMapping, Protocol, TypeAlias, TypeVar
+from typing import Any, Generic, Protocol, TypeAlias, TypeVar
 
 T = TypeVar("T")
 
@@ -32,8 +33,7 @@ Patch = PatchProps | PatchInsertChild | PatchRemoveChild | PatchText
 
 
 class Node(Protocol):
-    def apply(self, patch: Patch) -> None:
-        ...
+    def apply(self, patch: Patch) -> None: ...
 
 
 @dataclass(slots=True, frozen=True)
@@ -44,8 +44,7 @@ class Element(Generic[T]):
 
 
 @dataclass(slots=True, frozen=True)
-class VDomElement(Element["VDom"]):
-    ...
+class VDomElement(Element["VDom"]): ...
 
 
 VDom = VDomElement | str

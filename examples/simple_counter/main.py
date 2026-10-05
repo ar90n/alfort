@@ -1,7 +1,8 @@
 import asyncio
 import curses
+from collections.abc import Callable
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 
 from alfort import Alfort, Dispatch, Effect
 from alfort.sub import Subscription, UnSubscription, subscription
